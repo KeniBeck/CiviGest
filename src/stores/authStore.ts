@@ -7,8 +7,8 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (user: User, token: string) => void;
-  logout: () => void;
+  setAuth: (user: User, token: string) => void;
+  clearAuth: () => void;
   setLoading: (loading: boolean) => void;
 }
 
@@ -20,7 +20,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
 
-      login: (user: User, token: string) => {
+      setAuth: (user: User, token: string) => {
         set({
           user,
           token,
@@ -29,7 +29,7 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      logout: () => {
+      clearAuth: () => {
         set({
           user: null,
           token: null,

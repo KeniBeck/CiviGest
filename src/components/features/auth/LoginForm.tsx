@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useAuth } from '@/hooks/useAuth';
+import { useLogin } from '@/hooks/queries/useAuth';
 import { loginSchema } from '@/utils/validators';
 import type { LoginFormData } from '@/utils/validators';
 import { Button } from '@/components/ui/button';
@@ -16,8 +15,7 @@ import {
 } from '@/components/ui/card';
 
 export function LoginForm() {
-  const { login, isLoading } = useAuth();
-  const [error, setError] = useState<string>('');
+  const { mutate: login, isPending, error } = useLogin();
 
   const {
     register,
@@ -27,14 +25,8 @@ export function LoginForm() {
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = async (data: LoginFormData) => {
-    setError('');
-
-    const result = await login(data.email, data.password);
-
-    if (!result.success && result.error) {
-      setError(result.error);
-    }
+  const onSubmit = (data: LoginFormData) => {
+    login(data);
   };
 
   return (
@@ -54,7 +46,7 @@ export function LoginForm() {
               type="email"
               placeholder="tu@email.com"
               {...register('email')}
-              disabled={isLoading}
+              disabled={isPending}
             />
             {errors.email && (
               <p className="text-sm text-red-500">{errors.email.message}</p>
@@ -68,7 +60,7 @@ export function LoginForm() {
               type="password"
               placeholder="••••••••"
               {...register('password')}
-              disabled={isLoading}
+              disabled={isPending}
             />
             {errors.password && (
               <p className="text-sm text-red-500">{errors.password.message}</p>
@@ -77,12 +69,13 @@ export function LoginForm() {
 
           {error && (
             <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-400">
-              {error}
+              {(error as any)?.response?.data?.message ||
+                'Error al iniciar sesión'}
             </div>
           )}
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+          <Button type="submit" className="w-full" disabled={isPending}>
+            {isPending ? 'Cargando tema y configuración...' : 'Iniciar Sesión'}
           </Button>
         </form>
       </CardContent>
