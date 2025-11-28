@@ -32,13 +32,15 @@ export const Header = () => {
             )}
             <div className="hidden sm:block">
               <h1
-                className="text-lg font-bold mb-2"
+                className="text-lg font-bold"
                 style={{ color: 'var(--color-primary)' }}
               >
                 {configuracion?.nombreCliente || 'CiviGest'}
               </h1>
               {configuracion?.slogan && (
-                <p className="text-xs text-gray-500">{configuracion.slogan}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {configuracion.slogan}
+                </p>
               )}
             </div>
           </div>

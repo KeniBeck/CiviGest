@@ -11,7 +11,7 @@ export const Sidebar = () => {
 
   return (
     <>
-      {/* Overlay para móvil */}
+      {/* Overlay para móvil - solo cuando sidebar está abierto */}
       {!sidebarCollapsed && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -24,7 +24,9 @@ export const Sidebar = () => {
         className={cn(
           'fixed lg:sticky top-0 left-0 h-screen bg-gray-50 z-50 transition-all duration-300',
           'shadow-[4px_4px_8px_rgba(0,0,0,0.1),-4px_-4px_8px_rgba(255,255,255,0.9)]',
-          sidebarCollapsed ? 'w-0 lg:w-20' : 'w-72 lg:w-72'
+          sidebarCollapsed
+            ? '-translate-x-full lg:translate-x-0 lg:w-20'
+            : 'translate-x-0 w-72'
         )}
       >
         <div className="h-full flex flex-col">
