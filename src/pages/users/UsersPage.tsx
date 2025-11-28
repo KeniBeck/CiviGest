@@ -28,7 +28,7 @@ export function UsersPage() {
   const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState('');
   const [isActive, setIsActive] = useState<boolean | undefined>(undefined);
-
+``
   const { data, isLoading, error } = useUsers({
     page,
     limit,
@@ -140,13 +140,13 @@ export function UsersPage() {
 
         {/* DataTable */}
         <DataTable
-          data={data?.data || []}
+          data={data?.items || []}
           columns={columns}
           isLoading={isLoading}
           error={error?.message || null}
           currentPage={page}
-          totalPages={data?.meta?.totalPages || 1}
-          totalItems={data?.meta?.total || 0}
+          totalPages={data?.pagination?.totalPages || 1}
+          totalItems={data?.pagination?.total || 0}
           pageSize={limit}
           onPageChange={setPage}
           onPageSizeChange={(size) => {
