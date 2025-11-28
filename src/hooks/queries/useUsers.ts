@@ -22,7 +22,7 @@ export const useUsers = (params: GetUsersParams) => {
       const response = await userService.getAll(params);
       return response.data;
     },
-    keepPreviousData: true, // Importante para paginación suave
+    placeholderData: (previousData) => previousData, // Importante para paginación suave (React Query v5)
   });
 };
 
