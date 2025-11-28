@@ -25,8 +25,8 @@ export const UserMenu = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="focus:outline-none">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-xl shadow-[4px_4px_8px_rgba(0,0,0,0.1),-4px_-4px_8px_rgba(255,255,255,0.9)] hover:shadow-[2px_2px_4px_rgba(0,0,0,0.15),-2px_-2px_4px_rgba(255,255,255,0.95)] transition-all">
-          <Avatar className="h-10 w-10">
+        <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-xl shadow-[4px_4px_8px_rgba(0,0,0,0.1),-4px_-4px_8px_rgba(255,255,255,0.9)] hover:shadow-[2px_2px_4px_rgba(0,0,0,0.15),-2px_-2px_4px_rgba(255,255,255,0.95)] transition-all">
+          <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0">
             <AvatarFallback
               style={{
                 backgroundColor: 'var(--color-primary)',
@@ -36,11 +36,11 @@ export const UserMenu = () => {
               {initials}
             </AvatarFallback>
           </Avatar>
-          <div className="hidden md:block text-left">
-            <p className="text-sm font-medium text-gray-900">
+          <div className="hidden md:block text-left min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">
               {user.firstName} {user.lastName}
             </p>
-            <p className="text-xs text-gray-500">{user.roles[0]}</p>
+            <p className="text-xs text-gray-500 truncate">{user.roles[0]}</p>
           </div>
         </div>
       </DropdownMenuTrigger>
