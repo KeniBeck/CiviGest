@@ -55,7 +55,12 @@ export const useLogin = () => {
 
       const { user, accessToken } = loginResponse;
 
-      // 2. Cargar configuración del municipio (incluye tema)
+      // 2. GUARDAR TOKEN PRIMERO (para que esté disponible en el interceptor)
+      setAuth(user, accessToken);
+      console.log('✅ Token guardado antes de llamar configuración');
+
+      // 3. Cargar configuración del municipio (incluye tema)
+      // Ahora el interceptor SÍ encontrará el token en localStorage
       const configResponse = await configuracionService.getBySubsede(
         user.subsedeId
       );
@@ -66,10 +71,7 @@ export const useLogin = () => {
         configuracion: configResponse.data,
       };
     },
-    onSuccess: ({ user, accessToken, configuracion }) => {
-      // Guardar auth en Zustand
-      setAuth(user, accessToken);
-
+    onSuccess: ({ configuracion }) => {
       // Guardar configuración y tema en Zustand
       setConfiguracion(configuracion);
 

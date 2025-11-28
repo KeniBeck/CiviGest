@@ -15,10 +15,19 @@ export const api = axios.create({
 // Request interceptor - add auth token to requests
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // EXCEPCIÓN: /themes/default es PÚBLICO (no requiere token)
-    const isPublicEndpoint = config.url?.includes('/themes/default');
+    // ENDPOINTS PÚBLICOS (sin autenticación):
+    const publicEndpoints = [
+      '/auth/login',
+      '/auth/validate',
+      '/themes/', // Todos los endpoints de temas
+    ];
+
+    const isPublicEndpoint = publicEndpoints.some((endpoint) =>
+      config.url?.includes(endpoint)
+    );
 
     if (isPublicEndpoint) {
+      console.log('🔓 Endpoint público (sin token):', config.url);
       return config;
     }
 
@@ -32,10 +41,15 @@ api.interceptors.request.use(
 
         if (token && config.headers) {
           config.headers.Authorization = `Bearer ${token}`;
+          console.log('🔐 Token agregado al header:', config.url);
+        } else {
+          console.warn('⚠️ No hay token disponible para:', config.url);
         }
       } catch (error) {
         console.error('Error parsing auth storage:', error);
       }
+    } else {
+      console.warn('⚠️ No hay auth storage para:', config.url);
     }
 
     return config;

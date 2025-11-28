@@ -14,7 +14,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         className={cn(
           "inline-flex items-center justify-center font-medium transition-all duration-200 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
           {
-            "neomorph-button text-[var(--color-text-primary)]":
+            "neomorph-button text-white":
               variant === 'default',
             "neomorph-flat border-2 border-[var(--color-primary)] text-[var(--color-primary)]":
               variant === 'outline',
@@ -28,6 +28,11 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           },
           className
         )}
+        style={
+          variant === 'default'
+            ? { backgroundColor: 'var(--color-primary)' }
+            : undefined
+        }
         ref={ref}
         {...props}
       />
