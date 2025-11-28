@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   :root {
@@ -57,10 +59,96 @@
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
   body {
-    @apply bg-background text-foreground;
+    font-family: system-ui, -apple-system, sans-serif;
+    background-color: var(--color-background, #e0e5ec);
+  }
+}
+
+/* ============================================ */
+/* NEUMORPHISM UTILITIES */
+/* ============================================ */
+@layer utilities {
+  /* Neumorphic raised effect */
+  .neomorph {
+    background: var(--color-surface, #e0e5ec);
+    box-shadow:
+      8px 8px 16px rgba(163, 177, 198, 0.6),
+      -8px -8px 16px rgba(255, 255, 255, 0.5);
+    border-radius: 16px;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  .neomorph:hover {
+    box-shadow:
+      12px 12px 24px rgba(163, 177, 198, 0.7),
+      -12px -12px 24px rgba(255, 255, 255, 0.6);
+  }
+
+  /* Neumorphic pressed/inset effect */
+  .neomorph-inset {
+    background: var(--color-surface, #e0e5ec);
+    box-shadow:
+      inset 6px 6px 12px rgba(163, 177, 198, 0.5),
+      inset -6px -6px 12px rgba(255, 255, 255, 0.5);
+    border-radius: 16px;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  /* Neumorphic flat (subtle) */
+  .neomorph-flat {
+    background: var(--color-surface, #e0e5ec);
+    box-shadow:
+      4px 4px 8px rgba(163, 177, 198, 0.4),
+      -4px -4px 8px rgba(255, 255, 255, 0.4);
+    border-radius: 12px;
+  }
+
+  /* Neumorphic button */
+  .neomorph-button {
+    background: var(--color-surface, #e0e5ec);
+    box-shadow:
+      6px 6px 12px rgba(163, 177, 198, 0.5),
+      -6px -6px 12px rgba(255, 255, 255, 0.5);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+  }
+
+  .neomorph-button:hover {
+    box-shadow:
+      8px 8px 16px rgba(163, 177, 198, 0.6),
+      -8px -8px 16px rgba(255, 255, 255, 0.6);
+  }
+
+  .neomorph-button:active {
+    box-shadow:
+      inset 4px 4px 8px rgba(163, 177, 198, 0.5),
+      inset -4px -4px 8px rgba(255, 255, 255, 0.5);
+  }
+
+  /* Neumorphic input */
+  .neomorph-input {
+    background: var(--color-surface, #e0e5ec);
+    box-shadow:
+      inset 4px 4px 8px rgba(163, 177, 198, 0.4),
+      inset -4px -4px 8px rgba(255, 255, 255, 0.4);
+    border-radius: 12px;
+    border: none;
+  }
+
+  .neomorph-input:focus {
+    box-shadow:
+      inset 6px 6px 12px rgba(163, 177, 198, 0.5),
+      inset -6px -6px 12px rgba(255, 255, 255, 0.5);
+    outline: none;
+  }
+
+  /* Neumorphic card */
+  .neomorph-card {
+    background: var(--color-surface, #e0e5ec);
+    box-shadow:
+      10px 10px 20px rgba(163, 177, 198, 0.6),
+      -10px -10px 20px rgba(255, 255, 255, 0.5);
+    border-radius: 20px;
   }
 }
