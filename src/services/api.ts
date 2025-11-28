@@ -17,8 +17,7 @@ api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // ENDPOINTS PÚBLICOS (sin autenticación):
     const publicEndpoints = [
-      '/auth/login',
-      '/auth/validate',
+      '/auth/login', // Solo login es público
       '/themes/', // Todos los endpoints de temas
     ];
 
