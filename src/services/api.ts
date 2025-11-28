@@ -15,7 +15,14 @@ export const api = axios.create({
 // Request interceptor - add auth token to requests
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // Get token from localStorage
+    // EXCEPCIÓN: /themes/default es PÚBLICO (no requiere token)
+    const isPublicEndpoint = config.url?.includes('/themes/default');
+
+    if (isPublicEndpoint) {
+      return config;
+    }
+
+    // Para todos los demás endpoints, agregar token
     const authStorage = localStorage.getItem('auth-storage');
 
     if (authStorage) {
