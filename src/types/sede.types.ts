@@ -18,6 +18,7 @@ export interface GetSedesParams {
   limit?: number;
   search?: string;
   isActive?: boolean;
+  activatePaginated?: boolean; 
 }
 
 export interface CreateSedeDto {

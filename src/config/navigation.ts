@@ -127,7 +127,7 @@ export const navigationMenu: MenuItem[] = [
   {
     label: 'Administración',
     icon: Shield,
-    roles: ['SUPER_ADMIN', 'MUNICIPAL'],
+    roles: ['SUPER_ADMIN', 'MUNICIPAL', 'ESTATAL'],
     children: [
       {
         label: 'Usuarios',
