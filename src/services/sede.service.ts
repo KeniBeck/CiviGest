@@ -9,7 +9,7 @@ import type { PaginatedResponse } from '@/types/api.types';
 
 export const sedeService = {
   getAll: async (params: GetSedesParams) => {
-    const response = await api.get<PaginatedResponse<Sede>>('/sedes', { params });
+    const response = await api.get<PaginatedResponse<Sede>>('/sedes/paginated', { params });
     return response;
   },
 
