@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { DashboardPage } from '@/pages/dashboard/DashboardPage';
-import { UsersPage } from '@/pages/users/UsersPage';
+import UsersPage from '@/pages/users/UsersPage';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { ProtectedRoute } from '@/components/features/auth/ProtectedRoute';
 import { ROUTES } from '@/config/routes';

@@ -1,39 +1,49 @@
 import { useState } from 'react';
-import { Pencil, Trash2, UserPlus } from 'lucide-react';
+import { Edit, Trash, UserPlus } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
+import { Filters } from '@/components/common/Filters';
+import { DataTable } from '@/components/common/DataTable';
 import { useUsers, useDeleteUser } from '@/hooks/queries/useUsers';
-import { DataTable, type Column } from '@/components/common/DataTable';
+import { useDebounce } from '@/hooks/useDebounce';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { sedeService } from '@/services/sede.service';
+import { subsedeService } from '@/services/subsede.service';
 import type { User } from '@/types/user.types';
+import type { Sede } from '@/types/sede.types';
+import type { Subsede } from '@/types/subsede.types';
+import type { Column } from '@/components/common/DataTable';
 
-const getRoleColorVariant = (
-  level: string
-): 'default' | 'secondary' | 'destructive' | 'outline' | 'success' => {
-  switch (level) {
-    case 'SUPER_ADMIN':
-      return 'destructive'; // Rojo
-    case 'ESTATAL':
-      return 'default'; // Azul
-    case 'MUNICIPAL':
-      return 'success'; // Verde
-    case 'OPERATIVO':
-      return 'outline'; // Gris
-    default:
-      return 'default';
-  }
-};
+const UsersPage = () => {
+  const currentUser = useAuthStore((state) => state.user);
 
-export function UsersPage() {
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [search, setSearch] = useState('');
-  const [isActive, setIsActive] = useState<boolean | undefined>(undefined);
-``
+  // ✅ Determinar rol del usuario autenticado
+  const isSuperAdmin = currentUser?.roles.some((r) =>
+    r.toLowerCase().includes('super')
+  );
+  const isEstatal = currentUser?.accessLevel === 'SEDE' && !isSuperAdmin;
+
+  // ✅ Estado de filtros
+  const [filters, setFilters] = useState({
+    page: 1,
+    limit: 10,
+    search: '',
+    isActive: undefined as boolean | undefined,
+    sedeId: undefined as number | undefined,
+    subsedeId: undefined as number | undefined,
+  });
+
+  // ✅ Debounce para búsqueda
+  const debouncedSearch = useDebounce(filters.search, 500);
+
+  // ✅ Query de usuarios con todos los filtros
   const { data, isLoading, error } = useUsers({
-    page,
-    limit,
-    search: search || undefined,
-    isActive,
+    page: filters.page,
+    limit: filters.limit,
+    search: debouncedSearch,
+    isActive: filters.isActive,
+    sedeId: filters.sedeId,
+    subsedeId: filters.subsedeId,
   });
 
   const { mutate: deleteUser } = useDeleteUser();
@@ -44,15 +54,30 @@ export function UsersPage() {
     }
   };
 
+  // ✅ Helper para colores de roles
+  const getRoleVariant = (level: string) => {
+    switch (level) {
+      case 'SUPER_ADMIN':
+        return 'destructive';
+      case 'ESTATAL':
+        return 'default';
+      case 'MUNICIPAL':
+        return 'secondary';
+      case 'OPERATIVO':
+        return 'outline';
+      default:
+        return 'default';
+    }
+  };
+
+  // ✅ Columnas dinámicas según rol
   const columns: Column<User>[] = [
     {
       header: 'Nombre',
       accessor: (row) => (
         <div>
-          <p className="font-medium text-gray-900">
-            {row.firstName} {row.lastName}
-          </p>
-          <p className="text-xs text-gray-500">{row.email}</p>
+          <div className="font-medium">{`${row.firstName} ${row.lastName}`}</div>
+          <div className="text-sm text-gray-500">{row.email}</div>
         </div>
       ),
     },
@@ -63,7 +88,7 @@ export function UsersPage() {
     {
       header: 'Documento',
       accessor: (row) => (
-        <span className="text-sm text-gray-700">
+        <span className="text-sm">
           {row.documentType}: {row.documentNumber}
         </span>
       ),
@@ -72,114 +97,211 @@ export function UsersPage() {
       header: 'Roles',
       accessor: (row) => (
         <div className="flex flex-wrap gap-1">
-          {row.roles.map((r, index) => (
-            <Badge key={index} variant={getRoleColorVariant(r.role.level)}>
+          {row.roles.map((r, idx) => (
+            <Badge key={idx} variant={getRoleVariant(r.role.level)}>
               {r.role.name}
             </Badge>
           ))}
         </div>
       ),
     },
-    {
-      header: 'Municipio',
-      accessor: (row) => row.subsede?.name || 'Sistema',
-    },
+
+    // ✅ Columna ESTADO (sede) - solo para SUPER_ADMIN
+    ...(isSuperAdmin
+      ? [
+          {
+            header: 'Estado',
+            accessor: (row: User) => row.sede?.name || '-',
+          },
+        ]
+      : []),
+
+    // ✅ Columna MUNICIPIO (subsede) - para SUPER_ADMIN y ESTATAL
+    ...(isSuperAdmin || isEstatal
+      ? [
+          {
+            header: 'Municipio',
+            accessor: (row: User) => row.subsede?.name || 'Sistema',
+          },
+        ]
+      : []),
+
     {
       header: 'Estado',
       accessor: (row) => (
-        <Badge variant={row.isActive ? 'success' : 'destructive'}>
+        <Badge variant={row.isActive ? 'default' : 'destructive'}>
           {row.isActive ? 'Activo' : 'Inactivo'}
         </Badge>
       ),
     },
   ];
 
+  // ✅ Configurar filtros dinámicamente según rol
+  const filterConfigs = [
+    // ✅ 1. BÚSQUEDA - Todos los roles
+    {
+      name: 'search',
+      label: 'Buscar',
+      type: 'search' as const,
+      placeholder: 'Buscar por nombre, email, usuario...',
+      value: filters.search,
+      onChange: (value: string) =>
+        setFilters((prev) => ({ ...prev, search: value, page: 1 })),
+    },
+
+    // ✅ 2. ESTADO ACTIVO/INACTIVO - Todos los roles
+    {
+      name: 'isActive',
+      label: 'Estado',
+      type: 'select' as const,
+      placeholder: 'Todos los estados',
+      options: [
+        { label: 'Todos', value: '' },
+        { label: 'Activos', value: 'true' },
+        { label: 'Inactivos', value: 'false' },
+      ],
+      value: filters.isActive === undefined ? '' : String(filters.isActive),
+      onChange: (value: string) =>
+        setFilters((prev) => ({
+          ...prev,
+          isActive: value === '' ? undefined : value === 'true',
+          page: 1,
+        })),
+    },
+
+    // ✅ 3. FILTRO ESTADO (sede) - Solo SUPER_ADMIN
+    ...(isSuperAdmin
+      ? [
+          {
+            name: 'sedeId',
+            label: 'Estado',
+            type: 'searchable-select' as const,
+            placeholder: 'Seleccionar estado',
+            value: filters.sedeId || '',
+            onChange: (value: string) =>
+              setFilters((prev) => ({
+                ...prev,
+                sedeId: value ? Number(value) : undefined,
+                subsedeId: undefined, // Reset subsede cuando cambia sede
+                page: 1,
+              })),
+            queryKey: ['sedes-filter'],
+            queryFn: async ({
+              page,
+              search,
+              limit,
+            }: {
+              page: number;
+              search: string;
+              limit: number;
+            }) => {
+              const response = await sedeService.getAll({ page, search, limit });
+              return response.data;
+            },
+            getOptionLabel: (item: Sede) => item.name,
+            getOptionValue: (item: Sede) => item.id,
+          },
+        ]
+      : []),
+
+    // ✅ 4. FILTRO MUNICIPIO (subsede) - SUPER_ADMIN y ESTATAL
+    ...(isSuperAdmin || isEstatal
+      ? [
+          {
+            name: 'subsedeId',
+            label: 'Municipio',
+            type: 'searchable-select' as const,
+            placeholder: 'Seleccionar municipio',
+            value: filters.subsedeId || '',
+            onChange: (value: string) =>
+              setFilters((prev) => ({
+                ...prev,
+                subsedeId: value ? Number(value) : undefined,
+                page: 1,
+              })),
+            queryKey: ['subsedes-filter', ...(filters.sedeId ? [filters.sedeId] : [])],
+            queryFn: async ({
+              page,
+              search,
+              limit,
+            }: {
+              page: number;
+              search: string;
+              limit: number;
+            }) => {
+              const params = {
+                page,
+                search,
+                limit,
+                ...(filters.sedeId && { sedeId: filters.sedeId }),
+              };
+              const response = await subsedeService.getAll(params);
+              return response.data;
+            },
+            getOptionLabel: (item: Subsede) => item.name,
+            getOptionValue: (item: Subsede) => item.id,
+          },
+        ]
+      : []),
+  ];
+
+  const users = data?.items || [];
+  const pagination = data?.pagination || {
+    totalItems: 0,
+    itemsPerPage: 10,
+    currentPage: 1,
+    totalPages: 0,
+  };
+
   return (
-    <div className="h-full p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1
-              className="text-2xl sm:text-3xl font-bold"
-              style={{ color: 'var(--color-primary)' }}
-            >
-              Usuarios
-            </h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Gestiona los usuarios del sistema
-            </p>
-          </div>
-          <Button
-            className="shrink-0"
-            onClick={() => alert('Formulario en desarrollo')}
-          >
-            <UserPlus className="h-4 w-4 mr-2" />
-            Nuevo Usuario
-          </Button>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Usuarios</h1>
+          <p className="text-gray-500 mt-1">Gestiona los usuarios del sistema</p>
         </div>
-
-        {/* Filtros */}
-        <div className="flex flex-wrap gap-4 mb-6">
-          <select
-            value={isActive === undefined ? 'all' : isActive ? 'active' : 'inactive'}
-            onChange={(e) => {
-              const value = e.target.value;
-              setIsActive(
-                value === 'all' ? undefined : value === 'active'
-              );
-              setPage(1);
-            }}
-            className="px-4 py-2 text-sm border border-gray-300 rounded-lg shadow-[inset_2px_2px_4px_rgba(0,0,0,0.1),inset_-2px_-2px_4px_rgba(255,255,255,0.9)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] bg-white"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="active">Activos</option>
-            <option value="inactive">Inactivos</option>
-          </select>
-        </div>
-
-        {/* DataTable */}
-        <DataTable
-          data={data?.items || []}
-          columns={columns}
-          isLoading={isLoading}
-          error={error?.message || null}
-          currentPage={data?.pagination?.currentPage || page}
-          totalPages={data?.pagination?.totalPages || 1}
-          totalItems={data?.pagination?.totalItems || 0}
-          pageSize={data?.pagination?.itemsPerPage || limit}
-          onPageChange={setPage}
-          onPageSizeChange={(size) => {
-            setLimit(size);
-            setPage(1);
-          }}
-          searchValue={search}
-          onSearchChange={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
-          searchPlaceholder="Buscar por nombre, email o username..."
-          actions={(row) => (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => alert(`Editar usuario ${row.id}`)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDelete(row.id)}
-                className="text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
-          )}
-        />
+        <Button className="shadow-[2px_2px_4px_rgba(0,0,0,0.15),-2px_-2px_4px_rgba(255,255,255,0.95)]">
+          <UserPlus className="h-4 w-4 mr-2" />
+          Nuevo Usuario
+        </Button>
       </div>
+
+      {/* ✅ Filtros dinámicos según rol */}
+      <Filters filters={filterConfigs} />
+
+      {/* ✅ Tabla con columnas dinámicas */}
+      <DataTable
+        data={users}
+        columns={columns}
+        isLoading={isLoading}
+        error={error?.message}
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        pageSize={pagination.itemsPerPage}
+        onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
+        onPageSizeChange={(limit) =>
+          setFilters((prev) => ({ ...prev, limit, page: 1 }))
+        }
+        actions={(user) => (
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" className="h-8 w-8">
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 text-red-600"
+              onClick={() => handleDelete(user.id)}
+            >
+              <Trash className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      />
     </div>
   );
-}
+};
+
+export default UsersPage;
