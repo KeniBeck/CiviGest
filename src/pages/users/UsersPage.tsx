@@ -72,8 +72,8 @@ export function UsersPage() {
       header: 'Roles',
       accessor: (row) => (
         <div className="flex flex-wrap gap-1">
-          {row.roles.map((r) => (
-            <Badge key={r.id} variant={getRoleColorVariant(r.role.level)}>
+          {row.roles.map((r, index) => (
+            <Badge key={index} variant={getRoleColorVariant(r.role.level)}>
               {r.role.name}
             </Badge>
           ))}
@@ -144,10 +144,10 @@ export function UsersPage() {
           columns={columns}
           isLoading={isLoading}
           error={error?.message || null}
-          currentPage={page}
+          currentPage={data?.pagination?.currentPage || page}
           totalPages={data?.pagination?.totalPages || 1}
-          totalItems={data?.pagination?.total || 0}
-          pageSize={limit}
+          totalItems={data?.pagination?.totalItems || 0}
+          pageSize={data?.pagination?.itemsPerPage || limit}
           onPageChange={setPage}
           onPageSizeChange={(size) => {
             setLimit(size);

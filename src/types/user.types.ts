@@ -1,3 +1,4 @@
+// ✅ Type completo según la respuesta del backend
 export interface User {
   id: number;
   sedeId: number;
@@ -11,12 +12,19 @@ export interface User {
   address: string | null;
   documentType: 'CURP' | 'RFC' | 'INE' | 'PASSPORT' | 'VISA';
   documentNumber: string;
-  accessLevel: 'SEDE' | 'SUBSEDE';
-  isActive: boolean;
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
+  passwordResetToken: string | null;
+  passwordResetExpires: string | null;
+  otpRequestCount: number;
+  lastOtpRequestAt: string | null;
+  lastLoginAt: string | null;
+  accessLevel: 'SEDE' | 'SUBSEDE';
+  isActive: boolean;
+  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  createdBy: number | null;
   sede: {
     id: number;
     name: string;
@@ -28,15 +36,16 @@ export interface User {
     code: string;
   } | null;
   roles: {
-    id: number;
-    roleId: number;
     role: {
       id: number;
       name: string;
       level: 'SUPER_ADMIN' | 'ESTATAL' | 'MUNICIPAL' | 'OPERATIVO';
-      description: string;
     };
   }[];
+  _count: {
+    sedeAccess: number;
+    subsedeAccess: number;
+  };
 }
 
 export interface GetUsersParams {
@@ -45,6 +54,8 @@ export interface GetUsersParams {
   search?: string;
   isActive?: boolean;
   accessLevel?: 'SEDE' | 'SUBSEDE';
+  sedeId?: number;
+  subsedeId?: number;
 }
 
 export interface CreateUserDto {
@@ -54,6 +65,7 @@ export interface CreateUserDto {
   firstName: string;
   lastName: string;
   phoneNumber: string;
+  phoneCountryCode?: string;
   documentType: 'CURP' | 'RFC' | 'INE' | 'PASSPORT' | 'VISA';
   documentNumber: string;
   accessLevel: 'SEDE' | 'SUBSEDE';
