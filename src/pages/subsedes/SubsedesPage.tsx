@@ -1,27 +1,24 @@
 import { useState } from 'react';
-import { Edit, Trash, UserPlus } from 'lucide-react';
+import { Edit, Trash, MapPin } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { Filters } from '@/components/common/Filters';
 import { DataTable } from '@/components/common/DataTable';
-import { useUsers, useDeleteUser } from '@/hooks/queries/useUsers';
+import { useSubsedes, useDeleteSubsede } from '@/hooks/queries/useSubsedes';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { sedeService } from '@/services/sede.service';
-import { subsedeService } from '@/services/subsede.service';
-import type { User } from '@/types/user.types';
-import type { Sede } from '@/types/sede.types';
 import type { Subsede } from '@/types/subsede.types';
+import type { Sede } from '@/types/sede.types';
 import type { Column } from '@/components/common/DataTable';
 
-const UsersPage = () => {
+const SubsedesPage = () => {
   const currentUser = useAuthStore((state) => state.user);
 
-  // ✅ Determinar rol del usuario autenticado
+  // ✅ Determinar si es SUPER_ADMIN
   const isSuperAdmin = currentUser?.roles.some((r) =>
     r.toLowerCase().includes('super')
   );
-  const isEstatal = currentUser?.accessLevel === 'SEDE' && !isSuperAdmin;
 
   // ✅ Estado de filtros
   const [filters, setFilters] = useState({
@@ -30,102 +27,58 @@ const UsersPage = () => {
     search: '',
     isActive: undefined as boolean | undefined,
     sedeId: undefined as number | undefined,
-    subsedeId: undefined as number | undefined,
   });
 
   // ✅ Debounce para búsqueda
   const debouncedSearch = useDebounce(filters.search, 500);
 
-  // ✅ Query de usuarios - solo enviar parámetros si NO son undefined
-  const { data, isLoading, error } = useUsers({
+  // ✅ Query de subsedes - solo enviar parámetros si NO son undefined
+  const { data, isLoading, error } = useSubsedes({
     page: filters.page,
     limit: filters.limit,
     search: debouncedSearch,
     ...(filters.isActive !== undefined && { isActive: filters.isActive }),
     ...(filters.sedeId !== undefined && { sedeId: filters.sedeId }),
-    ...(filters.subsedeId !== undefined && { subsedeId: filters.subsedeId }),
   });
 
-  const { mutate: deleteUser } = useDeleteUser();
+  const { mutate: deleteSubsede } = useDeleteSubsede();
 
   const handleDelete = (id: number) => {
-    if (window.confirm('¿Estás seguro de eliminar este usuario?')) {
-      deleteUser(id);
+    if (window.confirm('¿Estás seguro de eliminar esta subsede?')) {
+      deleteSubsede(id);
     }
   };
 
-  // ✅ Helper para colores de roles
-  const getRoleVariant = (level: string) => {
-    switch (level) {
-      case 'SUPER_ADMIN':
-        return 'destructive';
-      case 'ESTATAL':
-        return 'default';
-      case 'MUNICIPAL':
-        return 'secondary';
-      case 'OPERATIVO':
-        return 'outline';
-      default:
-        return 'default';
-    }
-  };
-
-  // ✅ Columnas dinámicas según rol
-  const columns: Column<User>[] = [
+  // ✅ Columnas de la tabla
+  const columns: Column<Subsede>[] = [
     {
       header: 'Nombre',
       accessor: (row) => (
         <div>
-          <div className="font-medium">{`${row.firstName} ${row.lastName}`}</div>
-          <div className="text-sm text-gray-500">{row.email}</div>
+          <div className="font-medium">{row.name}</div>
+          <div className="text-sm text-gray-500">Código: {row.code}</div>
         </div>
       ),
     },
     {
-      header: 'Usuario',
-      accessor: 'username',
+      header: 'Código',
+      accessor: 'code',
     },
-    {
-      header: 'Documento',
-      accessor: (row) => (
-        <span className="text-sm">
-          {row.documentType}: {row.documentNumber}
-        </span>
-      ),
-    },
-    {
-      header: 'Roles',
-      accessor: (row) => (
-        <div className="flex flex-wrap gap-1">
-          {row.roles.map((r, idx) => (
-            <Badge key={idx} variant={getRoleVariant(r.role.level)}>
-              {r.role.name}
-            </Badge>
-          ))}
-        </div>
-      ),
-    },
-
-    // ✅ Columna ESTADO (sede) - solo para SUPER_ADMIN
+    // ✅ Columna SEDE - solo para SUPER_ADMIN
     ...(isSuperAdmin
       ? [
           {
             header: 'Estado',
-            accessor: (row: User) => row.sede?.name || '-',
+            accessor: (row: Subsede) => row.sede?.name || '-',
           },
         ]
       : []),
-
-    // ✅ Columna MUNICIPIO (subsede) - para SUPER_ADMIN y ESTATAL
-    ...(isSuperAdmin || isEstatal
-      ? [
-          {
-            header: 'Municipio',
-            accessor: (row: User) => row.subsede?.name || 'Sistema',
-          },
-        ]
-      : []),
-
+    {
+      header: 'Usuarios',
+      accessor: (row) => (
+        <span className="text-sm">{row._count?.users || 0}</span>
+      ),
+    },
     {
       header: 'Estado',
       accessor: (row) => (
@@ -136,20 +89,17 @@ const UsersPage = () => {
     },
   ];
 
-  // ✅ Configurar filtros dinámicamente según rol
+  // ✅ Configuración de filtros
   const filterConfigs = [
-    // ✅ 1. BÚSQUEDA - Todos los roles
     {
       name: 'search',
       label: 'Buscar',
       type: 'search' as const,
-      placeholder: 'Buscar por nombre, email, usuario...',
+      placeholder: 'Buscar por nombre o código...',
       value: filters.search,
       onChange: (value: string) =>
         setFilters((prev) => ({ ...prev, search: value, page: 1 })),
     },
-
-    // ✅ 2. ESTADO ACTIVO/INACTIVO - Todos los roles
     {
       name: 'isActive',
       label: 'Estado',
@@ -169,20 +119,19 @@ const UsersPage = () => {
         })),
     },
 
-    // ✅ 3. FILTRO ESTADO (sede) - Solo SUPER_ADMIN
+    // ✅ Filtro SEDE - solo SUPER_ADMIN
     ...(isSuperAdmin
       ? [
           {
             name: 'sedeId',
             label: 'Estado',
             type: 'searchable-select' as const,
-            placeholder: 'Seleccionar estado',
+            placeholder: 'Todos los estados',
             value: filters.sedeId || '0',
             onChange: (value: string) =>
               setFilters((prev) => ({
                 ...prev,
                 sedeId: value === '0' ? undefined : Number(value),
-                subsedeId: undefined, // Reset subsede cuando cambia sede
                 page: 1,
               })),
             queryKey: ['sedes-filter'],
@@ -203,49 +152,9 @@ const UsersPage = () => {
           },
         ]
       : []),
-
-    // ✅ 4. FILTRO MUNICIPIO (subsede) - SUPER_ADMIN y ESTATAL
-    ...(isSuperAdmin || isEstatal
-      ? [
-          {
-            name: 'subsedeId',
-            label: 'Municipio',
-            type: 'searchable-select' as const,
-            placeholder: 'Seleccionar municipio',
-            value: filters.subsedeId || '0',
-            onChange: (value: string) =>
-              setFilters((prev) => ({
-                ...prev,
-                subsedeId: value === '0' ? undefined : Number(value),
-                page: 1,
-              })),
-            queryKey: ['subsedes-filter', ...(filters.sedeId ? [filters.sedeId] : [])],
-            queryFn: async ({
-              page,
-              search,
-              limit,
-            }: {
-              page: number;
-              search: string;
-              limit: number;
-            }) => {
-              const params = {
-                page,
-                search,
-                limit,
-                ...(filters.sedeId && { sedeId: filters.sedeId }),
-              };
-              const response = await subsedeService.getAll(params);
-              return response.data;
-            },
-            getOptionLabel: (item: Subsede) => item.name,
-            getOptionValue: (item: Subsede) => item.id,
-          },
-        ]
-      : []),
   ];
 
-  const users = data?.items || [];
+  const subsedes = data?.items || [];
   const pagination = data?.pagination || {
     totalItems: 0,
     itemsPerPage: 10,
@@ -258,21 +167,23 @@ const UsersPage = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Usuarios</h1>
-          <p className="text-gray-500 mt-1">Gestiona los usuarios del sistema</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Subsedes (Municipios)
+          </h1>
+          <p className="text-gray-500 mt-1">Gestiona las subsedes del sistema</p>
         </div>
         <Button className="shadow-[2px_2px_4px_rgba(0,0,0,0.15),-2px_-2px_4px_rgba(255,255,255,0.95)]">
-          <UserPlus className="h-4 w-4 mr-2" />
-          Nuevo Usuario
+          <MapPin className="h-4 w-4 mr-2" />
+          Nueva Subsede
         </Button>
       </div>
 
-      {/* ✅ Filtros dinámicos según rol */}
+      {/* ✅ Filtros dinámicos */}
       <Filters filters={filterConfigs} />
 
-      {/* ✅ Tabla con columnas dinámicas */}
+      {/* ✅ Tabla */}
       <DataTable
-        data={users}
+        data={subsedes}
         columns={columns}
         isLoading={isLoading}
         error={error?.message}
@@ -284,7 +195,7 @@ const UsersPage = () => {
         onPageSizeChange={(limit) =>
           setFilters((prev) => ({ ...prev, limit, page: 1 }))
         }
-        actions={(user) => (
+        actions={(subsede) => (
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" className="h-8 w-8">
               <Edit className="h-4 w-4" />
@@ -293,7 +204,7 @@ const UsersPage = () => {
               variant="ghost"
               size="sm"
               className="h-8 w-8 text-red-600"
-              onClick={() => handleDelete(user.id)}
+              onClick={() => handleDelete(subsede.id)}
             >
               <Trash className="h-4 w-4" />
             </Button>
@@ -304,4 +215,4 @@ const UsersPage = () => {
   );
 };
 
-export default UsersPage;
+export default SubsedesPage;

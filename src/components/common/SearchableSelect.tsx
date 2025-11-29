@@ -118,10 +118,10 @@ export const SearchableSelect = ({
           <div
             className={cn(
               'relative flex cursor-pointer select-none items-center rounded-sm px-3 py-2 text-sm outline-none hover:bg-gray-100',
-              !value && 'bg-gray-100'
+              value === '0' && 'bg-gray-100'
             )}
             onClick={() => {
-              onChange('');
+              onChange('0');
               setOpen(false);
             }}
           >
