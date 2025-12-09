@@ -138,7 +138,7 @@ export const navigationMenu: MenuItem[] = [
         label: 'Roles',
         icon: ShieldCheck,
         path: '/roles',
-        roles: ['SUPER_ADMIN'],
+        roles: ['SUPER_ADMIN','MUNICIPAL','ESTATAL'],
       },
     ],
   },
