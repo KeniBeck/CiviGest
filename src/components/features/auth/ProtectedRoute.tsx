@@ -1,13 +1,8 @@
-import type { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { ROUTES } from '@/config/routes';
 
-interface ProtectedRouteProps {
-  children: ReactNode;
-}
-
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
+export function ProtectedRoute() {
   const { isAuthenticated, isLoading } = useAuthStore();
 
   // Show loading state
@@ -28,5 +23,5 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   // Token validation is handled by axios interceptor (401 response)
-  return <>{children}</>;
+  return <Outlet />;
 }

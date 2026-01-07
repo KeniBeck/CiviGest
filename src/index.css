@@ -59,6 +59,19 @@
 }
 
 @layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     font-family: system-ui, -apple-system, sans-serif;
     background-color: var(--color-background, #e0e5ec);
