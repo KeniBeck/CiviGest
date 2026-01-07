@@ -1,0 +1,31 @@
+name: Deploy Frontend Civigest to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Deploy frontend via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_KEY }}
+          port: 22
+          script: |
+            cd ~/CiviGest
+            git pull origin main
+            npm install
+            npm run build
+            sudo rm -rf /var/www/civigest/*
+            sudo cp -r dist/* /var/www/civigest/
+            sudo nginx -t
+            sudo systemctl reload nginx
