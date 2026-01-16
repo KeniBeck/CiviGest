@@ -13,6 +13,7 @@ import { TipoPermisoPage } from "./pages/tipo-permiso/TipoPermisoPage";
 import { PermisoPage } from "./pages/permiso/PermisoPage";
 import { TipoAgentePage } from "./pages/tipo-agente/TipoAgentePage";
 import { DepartamentoPage } from "./pages/departamento/DepartamentoPage";
+import { MultasPage } from "./pages/multas/MultasPage";
 
 export const router = createBrowserRouter([
   {
@@ -52,6 +53,10 @@ export const router = createBrowserRouter([
           {
             path: "/departamentos",
             element: <DepartamentoPage />,
+          },
+          {
+            path: "/multas",
+            element: <MultasPage />,
           },
           {
             path: "/agentes",
