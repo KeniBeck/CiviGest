@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Plus, X } from 'lucide-react';
-import type { UpdateTipoPermiso, CampoPersonalizado } from '@/types/tipoPermiso.type';
+import type { UpdateTipoPermiso, CampoPersonalizado } from '@/types/tipo-permiso.type';
 
 interface EditTipoPermisoModalProps {
   open: boolean;

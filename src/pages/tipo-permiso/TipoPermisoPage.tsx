@@ -6,7 +6,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Plus, Pencil, Trash2, ToggleLeft, ToggleRight, FileText } from 'lucide-react';
-import type { TipoPermiso } from '@/types/tipoPermiso.type';
+import type { TipoPermiso } from '@/types/tipo-permiso.type';
 
 export const TipoPermisoPage = () => {
   const [page, setPage] = useState(1);

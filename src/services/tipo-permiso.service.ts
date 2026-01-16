@@ -5,7 +5,7 @@ import type {
   CreateTipoPermiso, 
   UpdateTipoPermiso, 
   GetTipoPermisoParams 
-} from '@/types/tipoPermiso.type';
+} from '@/types/tipo-permiso.type';
 
 class TipoPermisoService {
   private readonly baseUrl = '/tipos-permiso';

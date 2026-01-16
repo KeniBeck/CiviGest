@@ -4,7 +4,7 @@ import type {
   GetTipoPermisoParams, 
   CreateTipoPermiso, 
   UpdateTipoPermiso 
-} from '@/types/tipoPermiso.type';
+} from '@/types/tipo-permiso.type';
 
 // ✅ Query Keys para caché de React Query
 export const tipoPermisoKeys = {
