@@ -74,3 +74,33 @@ export const useDeleteSubsede = () => {
     },
   });
 };
+
+/**
+ * Hook para obtener subsedes disponibles para asignar accesos
+ * Se adapta según el nivel del usuario:
+ * - SUPER_ADMIN: Subsedes de la sede seleccionada o todas
+ * - ESTATAL: Solo subsedes de su sede
+ * - MUNICIPAL: No se usa (auto-asignado)
+ */
+export const useSubsedesForAccess = (
+  userLevel: string,
+  currentUserSedeId?: number,
+  selectedSedeId?: number
+) => {
+  return useQuery({
+    queryKey: ['subsedes-for-access', userLevel, currentUserSedeId, selectedSedeId],
+    queryFn: async () => {
+      const params: any = { activatePaginated: false };
+
+      if (userLevel === 'ESTATAL') {
+        params.sedeId = currentUserSedeId;
+      } else if (userLevel === 'SUPER_ADMIN' && selectedSedeId) {
+        params.sedeId = selectedSedeId;
+      }
+
+      const response = await subsedeService.getAll(params);
+      return response.data.items || response.data;
+    },
+    enabled: userLevel === 'SUPER_ADMIN' || userLevel === 'ESTATAL',
+  });
+};
