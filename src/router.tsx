@@ -7,6 +7,7 @@ import SubsedesPage from '@/pages/subsedes/SubsedesPage';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { ProtectedRoute } from '@/components/features/auth/ProtectedRoute';
 import { ROUTES } from '@/config/routes';
+import { AgentesPage } from './pages/agente/AgentesPage';
 
 export const router = createBrowserRouter([
   {
@@ -30,6 +31,11 @@ export const router = createBrowserRouter([
           {
             path: '/users',
             element: <UsersPage />,
+          },
+          {
+            path: '/agentes',
+            element: <AgentesPage/>
+
           },
           {
             path: '/sedes',
