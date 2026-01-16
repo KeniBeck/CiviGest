@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/features/auth/ProtectedRoute";
 import { ROUTES } from "@/config/routes";
 import { AgentesPage } from "./pages/agente/AgentesPage";
 import { PatrullaPage } from "./pages/patrulla/PatrullaPage";
+import { TipoPermisoPage } from "./pages/tipo-permiso/TipoPermisoPage";
 
 export const router = createBrowserRouter([
   {
@@ -32,6 +33,10 @@ export const router = createBrowserRouter([
           {
             path: "/users",
             element: <UsersPage />,
+          },
+          {
+            path: "/tipos-permiso",
+            element: <TipoPermisoPage />,
           },
           {
             path: "/agentes",
