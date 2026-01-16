@@ -1,13 +1,14 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { LoginPage } from '@/pages/auth/LoginPage';
-import { DashboardPage } from '@/pages/dashboard/DashboardPage';
-import UsersPage from '@/pages/users/UsersPage';
-import SedesPage from '@/pages/sedes/SedesPage';
-import SubsedesPage from '@/pages/subsedes/SubsedesPage';
-import { MainLayout } from '@/components/layout/MainLayout';
-import { ProtectedRoute } from '@/components/features/auth/ProtectedRoute';
-import { ROUTES } from '@/config/routes';
-import { AgentesPage } from './pages/agente/AgentesPage';
+import { createBrowserRouter, Navigate } from "react-router-dom";
+import { LoginPage } from "@/pages/auth/LoginPage";
+import { DashboardPage } from "@/pages/dashboard/DashboardPage";
+import UsersPage from "@/pages/users/UsersPage";
+import SedesPage from "@/pages/sedes/SedesPage";
+import SubsedesPage from "@/pages/subsedes/SubsedesPage";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { ProtectedRoute } from "@/components/features/auth/ProtectedRoute";
+import { ROUTES } from "@/config/routes";
+import { AgentesPage } from "./pages/agente/AgentesPage";
+import { PatrullaPage } from "./pages/patrulla/PatrullaPage";
 
 export const router = createBrowserRouter([
   {
@@ -29,20 +30,23 @@ export const router = createBrowserRouter([
             element: <Navigate to={ROUTES.DASHBOARD} replace />,
           },
           {
-            path: '/users',
+            path: "/users",
             element: <UsersPage />,
           },
           {
-            path: '/agentes',
-            element: <AgentesPage/>
-
+            path: "/agentes",
+            element: <AgentesPage />,
           },
           {
-            path: '/sedes',
+            path: "/patrullas",
+            element: <PatrullaPage />,
+          },
+          {
+            path: "/sedes",
             element: <SedesPage />,
           },
           {
-            path: '/subsedes',
+            path: "/subsedes",
             element: <SubsedesPage />,
           },
           // Agregar más rutas aquí cuando se creen los módulos
@@ -51,7 +55,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: '*',
+    path: "*",
     element: <Navigate to={ROUTES.DASHBOARD} replace />,
   },
 ]);

@@ -21,8 +21,13 @@ export interface Patrulla {
         id: number;
         name: string;
         code: string;
-    },
-    agentes: []
+    };
+    agentes: Array<{
+        id: number;
+        nombres: string;
+        apellidoPaterno: string;
+        apellidoMaterno: string;
+    }>;
 }
 
 export interface CreatePatrulla {
