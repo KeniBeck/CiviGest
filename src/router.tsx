@@ -10,6 +10,7 @@ import { ROUTES } from "@/config/routes";
 import { AgentesPage } from "./pages/agente/AgentesPage";
 import { PatrullaPage } from "./pages/patrulla/PatrullaPage";
 import { TipoPermisoPage } from "./pages/tipo-permiso/TipoPermisoPage";
+import { PermisoPage } from "./pages/permiso/PermisoPage";
 
 export const router = createBrowserRouter([
   {
@@ -33,6 +34,10 @@ export const router = createBrowserRouter([
           {
             path: "/users",
             element: <UsersPage />,
+          },
+          {
+            path: "/permisos",
+            element: <PermisoPage />,
           },
           {
             path: "/tipos-permiso",
