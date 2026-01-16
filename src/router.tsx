@@ -11,6 +11,7 @@ import { AgentesPage } from "./pages/agente/AgentesPage";
 import { PatrullaPage } from "./pages/patrulla/PatrullaPage";
 import { TipoPermisoPage } from "./pages/tipo-permiso/TipoPermisoPage";
 import { PermisoPage } from "./pages/permiso/PermisoPage";
+import { TipoAgentePage } from "./pages/tipo-agente/TipoAgentePage";
 
 export const router = createBrowserRouter([
   {
@@ -42,6 +43,10 @@ export const router = createBrowserRouter([
           {
             path: "/tipos-permiso",
             element: <TipoPermisoPage />,
+          },
+          {
+            path: "/tipos-agente",
+            element: <TipoAgentePage />,
           },
           {
             path: "/agentes",
