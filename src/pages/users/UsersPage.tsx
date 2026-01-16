@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { sedeService } from "@/services/sede.service";
 import { subsedeService } from "@/services/subsede.service";
+import { CreateUserModal } from "@/components/features/users/CreateUserModal";
+import { EditUserModal } from "@/components/features/users/EditUserModal";
 import type { User } from "@/types/user.types";
 import type { Sede } from "@/types/sede.types";
 import type { Subsede } from "@/types/subsede.types";
@@ -16,6 +18,13 @@ import type { Column } from "@/components/common/DataTable";
 
 const UsersPage = () => {
   const currentUser = useAuthStore((state) => state.user);
+
+  // ✅ Estado del modal de creación
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  
+  // ✅ Estado del modal de edición
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   // ✅ Determinar rol del usuario autenticado
   const isSuperAdmin = currentUser?.roles.some((r) =>
@@ -52,6 +61,12 @@ const UsersPage = () => {
     if (window.confirm("¿Estás seguro de eliminar este usuario?")) {
       deleteUser(id);
     }
+  };
+
+  // ✅ Abrir modal de edición
+  const handleEdit = (user: User) => {
+    setSelectedUserId(user.id);
+    setIsEditModalOpen(true);
   };
 
   // ✅ Helper para colores de roles
@@ -270,7 +285,10 @@ const UsersPage = () => {
             Gestiona los usuarios del sistema
           </p>
         </div>
-        <Button className="shadow-[2px_2px_4px_rgba(0,0,0,0.15),-2px_-2px_4px_rgba(255,255,255,0.95)]">
+        <Button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="shadow-[2px_2px_4px_rgba(0,0,0,0.15),-2px_-2px_4px_rgba(255,255,255,0.95)]"
+        >
           <UserPlus className="h-4 w-4 mr-2" />
           Nuevo Usuario
         </Button>
@@ -295,7 +313,12 @@ const UsersPage = () => {
         }
         actions={(user) => (
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" className="h-8 w-8">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 w-8"
+              onClick={() => handleEdit(user)}
+            >
               <Edit className="h-4 w-4" />
             </Button>
             <Button
@@ -308,6 +331,19 @@ const UsersPage = () => {
             </Button>
           </div>
         )}
+      />
+
+      {/* ✅ Modal de creación */}
+      <CreateUserModal
+        open={isCreateModalOpen}
+        onOpenChange={setIsCreateModalOpen}
+      />
+
+      {/* ✅ Modal de edición */}
+      <EditUserModal
+        open={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        userId={selectedUserId}
       />
     </div>
   );

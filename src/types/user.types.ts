@@ -69,8 +69,10 @@ export interface CreateUserDto {
   documentType: 'CURP' | 'RFC' | 'INE' | 'PASSPORT' | 'VISA';
   documentNumber: string;
   accessLevel: 'SEDE' | 'SUBSEDE';
+  sedeId: number;
   subsedeId?: number;
   roleIds: number[];
+  subsedeAccessIds?: number[]; // Array de subsedes a las que tiene acceso
   address?: string;
 }
 
