@@ -8,6 +8,7 @@ interface ThemeState {
   configuracion: Configuracion | null;
   setTheme: (theme: Theme) => void;
   setConfiguracion: (configuracion: Configuracion) => void;
+  updateConfiguracion: (updates: Partial<Pick<Configuracion, 'nombreCliente' | 'slogan' | 'logo'>>) => void;
   clearTheme: () => void;
 }
 
@@ -26,6 +27,14 @@ export const useThemeStore = create<ThemeState>()(
           configuracion,
           currentTheme: configuracion.theme,
         });
+      },
+
+      updateConfiguracion: (updates: Partial<Pick<Configuracion, 'nombreCliente' | 'slogan' | 'logo'>>) => {
+        set((state) => ({
+          configuracion: state.configuracion
+            ? { ...state.configuracion, ...updates }
+            : null,
+        }));
       },
 
       clearTheme: () => {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useUpdateTipoAgente } from '@/hooks/queries/useTipoAgente';
+import { useNotification } from '@/hooks/useNotification';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,7 @@ interface EditTipoAgenteModalProps {
 }
 
 export const EditTipoAgenteModal = ({ open, onClose, tipoAgente }: EditTipoAgenteModalProps) => {
+  const notify = useNotification();
   const { mutate: updateTipoAgente, isPending } = useUpdateTipoAgente();
 
   const [formData, setFormData] = useState<UpdateTipoAgente>({
@@ -45,7 +47,11 @@ export const EditTipoAgenteModal = ({ open, onClose, tipoAgente }: EditTipoAgent
       { id: tipoAgente.id, data: formData },
       {
         onSuccess: () => {
+          notify.success('Tipo de Agente Actualizado', 'El tipo de agente se ha actualizado correctamente');
           onClose();
+        },
+        onError: (error) => {
+          notify.apiError(error);
         },
       }
     );

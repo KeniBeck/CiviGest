@@ -90,7 +90,7 @@ export const useSubsedesForAccess = (
   return useQuery({
     queryKey: ['subsedes-for-access', userLevel, currentUserSedeId, selectedSedeId],
     queryFn: async () => {
-      const params: any = { activatePaginated: false };
+      const params: any = { };
 
       if (userLevel === 'ESTATAL') {
         params.sedeId = currentUserSedeId;

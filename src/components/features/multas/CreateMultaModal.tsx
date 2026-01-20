@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCreateMulta } from '@/hooks/queries/useMultas';
 import { useDepartamentos } from '@/hooks/queries/useDepartamento';
+import { useNotification } from '@/hooks/useNotification';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ interface CreateMultaModalProps {
 }
 
 export const CreateMultaModal = ({ open, onClose }: CreateMultaModalProps) => {
+  const notify = useNotification();
   const { mutate: createMulta, isPending } = useCreateMulta();
   
   // Cargar departamentos activos
@@ -44,6 +46,7 @@ export const CreateMultaModal = ({ open, onClose }: CreateMultaModalProps) => {
     e.preventDefault();
     createMulta(formData, {
       onSuccess: () => {
+        notify.success('Multa Creada', 'La multa se ha creado correctamente');
         onClose();
         setFormData({
           nombre: '',
@@ -55,6 +58,9 @@ export const CreateMultaModal = ({ open, onClose }: CreateMultaModalProps) => {
           numSalarios: 0,
           recargo: 0,
         });
+      },
+      onError: (error) => {
+        notify.apiError(error);
       },
     });
   };

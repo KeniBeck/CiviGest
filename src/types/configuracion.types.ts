@@ -38,3 +38,41 @@ export interface Configuracion {
   };
   theme: Theme;
 }
+
+export interface CreateConfiguracionDto {
+  nombreCliente: string,
+  pais: string,
+  ciudad: string,
+  logo: string,
+  slogan: string,
+  titular: string,
+  themeId: number,
+  salarioMinimo: number,
+  uma: number,
+  correoContacto: string,
+  whatsappContacto: string,
+  telContacto: string,
+  correoAtencion: string,
+  whatsappAtencion: string,
+  telAtencion: string,
+  tasaRecargo: number
+}
+
+export interface UpdateConfiguracionDto {
+  nombreCliente?: string,
+  pais?: string,
+  ciudad?: string,
+  logo?: string,
+  slogan?: string,
+  titular?: string,
+  themeId?: number,
+  salarioMinimo?: number,
+  uma?: number,
+  correoContacto?: string,
+  whatsappContacto?: string,
+  telContacto?: string,
+  correoAtencion?: string,
+  whatsappAtencion?: string,
+  telAtencion?: string,
+  tasaRecargo?: number
+}

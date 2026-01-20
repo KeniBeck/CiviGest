@@ -35,7 +35,7 @@ export const Header = () => {
                 className="text-sm sm:text-base md:text-lg font-bold truncate"
                 style={{ color: 'var(--color-primary)' }}
               >
-                {configuracion?.nombreCliente || 'CiviGest'}
+                {configuracion?.nombreCliente || 'Tu Ciudad Digital'}
               </h1>
               {configuracion?.slogan && (
                 <p className="text-xs text-gray-500 mt-0.5 truncate hidden md:block">
