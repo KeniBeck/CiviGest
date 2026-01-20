@@ -1,4 +1,3 @@
-// filepath: /home/andresdev/utils/repos/CiviGest/CiviGest/src/hooks/queries/useMultas.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { multasService } from '@/services/multas.service';
 import type {

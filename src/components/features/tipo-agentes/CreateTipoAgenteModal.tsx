@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCreateTipoAgente } from '@/hooks/queries/useTipoAgente';
+import { useNotification } from '@/hooks/useNotification';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ interface CreateTipoAgenteModalProps {
 }
 
 export const CreateTipoAgenteModal = ({ open, onClose }: CreateTipoAgenteModalProps) => {
+  const notify = useNotification();
   const { mutate: createTipoAgente, isPending } = useCreateTipoAgente();
 
   const [formData, setFormData] = useState<CreateTipoAgente>({
@@ -29,8 +31,12 @@ export const CreateTipoAgenteModal = ({ open, onClose }: CreateTipoAgenteModalPr
     e.preventDefault();
     createTipoAgente(formData, {
       onSuccess: () => {
+        notify.success('Tipo de Agente Creado', 'El tipo de agente se ha creado correctamente');
         onClose();
         setFormData({ tipo: '' });
+      },
+      onError: (error) => {
+        notify.apiError(error);
       },
     });
   };

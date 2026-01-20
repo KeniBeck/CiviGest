@@ -1,4 +1,3 @@
-// filepath: /home/andresdev/utils/repos/CiviGest/CiviGest/src/services/multas.service.ts
 import { api } from './api';
 import type {
   Multas,

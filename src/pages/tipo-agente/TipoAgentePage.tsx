@@ -4,6 +4,7 @@ import {
   useDeleteTipoAgente,
   useToggleTipoAgente,
 } from '@/hooks/queries/useTipoAgente';
+import { useNotification } from '@/hooks/useNotification';
 import { CreateTipoAgenteModal } from '@/components/features/tipo-agentes/CreateTipoAgenteModal';
 import { EditTipoAgenteModal } from '@/components/features/tipo-agentes/EditTipoAgenteModal';
 import { DataTable } from '@/components/common/DataTable';
@@ -14,6 +15,7 @@ import { Loader2, Plus, Edit, Trash2, Power, Users } from 'lucide-react';
 import type { TipoAgente } from '@/types/tipo-agente.type';
 
 export const TipoAgentePage = () => {
+  const notify = useNotification();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState('');
@@ -28,7 +30,7 @@ export const TipoAgentePage = () => {
     search: search || undefined,
   });
 
-  // ✅ Mutations
+  // ✅ Mutations con notificaciones
   const { mutate: deleteTipoAgente, isPending: isDeleting } = useDeleteTipoAgente();
   const { mutate: toggleTipoAgente, isPending: isToggling } = useToggleTipoAgente();
 
@@ -44,12 +46,27 @@ export const TipoAgentePage = () => {
 
   const handleDelete = (id: number, nombre: string) => {
     if (window.confirm(`¿Estás seguro de eliminar el tipo de agente "${nombre}"?`)) {
-      deleteTipoAgente(id);
+      deleteTipoAgente(id, {
+        onSuccess: () => {
+          notify.success('Tipo de Agente Eliminado', 'El tipo de agente se ha eliminado correctamente');
+        },
+        onError: (error) => {
+          notify.apiError(error);
+        },
+      });
     }
   };
 
   const handleToggle = (id: number) => {
-    toggleTipoAgente(id);
+    toggleTipoAgente(id, {
+      onSuccess: (data) => {
+        const estado = data.data.isActive ? 'activado' : 'desactivado';
+        notify.success('Estado Actualizado', `El tipo de agente ha sido ${estado} correctamente`);
+      },
+      onError: (error) => {
+        notify.apiError(error);
+      },
+    });
   };
 
   const closeEditModal = () => {

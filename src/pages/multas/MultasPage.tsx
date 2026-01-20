@@ -1,4 +1,3 @@
-// filepath: /home/andresdev/utils/repos/CiviGest/CiviGest/src/pages/multas/MultasPage.tsx
 import { useState } from 'react';
 import {
   useMultas,

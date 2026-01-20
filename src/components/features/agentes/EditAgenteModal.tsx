@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAgente, useUpdateAgente } from '@/hooks/queries/useAgentes';
+import { useNotification } from '@/hooks/useNotification';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { tipoAgenteService } from '@/services/tipo-agente.service';
 import { departamentoService } from '@/services/departamento.service';
@@ -27,6 +28,7 @@ interface EditAgenteModalProps {
 }
 
 export const EditAgenteModal = ({ open, onClose, agenteId }: EditAgenteModalProps) => {
+  const notify = useNotification();
   const { data: agente, isLoading: isLoadingAgente } = useAgente(agenteId);
   const { mutate: updateAgente, isPending } = useUpdateAgente();
 
@@ -80,7 +82,11 @@ export const EditAgenteModal = ({ open, onClose, agenteId }: EditAgenteModalProp
       { id: agenteId, data: dataToSubmit },
       {
         onSuccess: () => {
+          notify.success('Agente Actualizado', 'El agente se ha actualizado correctamente');
           onClose();
+        },
+        onError: (error) => {
+          notify.apiError(error);
         },
       }
     );

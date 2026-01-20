@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCreateTipoPermiso } from '@/hooks/queries/useTipoPermiso';
+import { useNotification } from '@/hooks/useNotification';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ interface CreateTipoPermisoModalProps {
 }
 
 export const CreateTipoPermisoModal = ({ open, onClose }: CreateTipoPermisoModalProps) => {
+  const notify = useNotification();
   const { mutate: createTipoPermiso, isPending } = useCreateTipoPermiso();
 
   const [formData, setFormData] = useState<CreateTipoPermiso>({
@@ -44,6 +46,7 @@ export const CreateTipoPermisoModal = ({ open, onClose }: CreateTipoPermisoModal
     
     createTipoPermiso(formData, {
       onSuccess: () => {
+        notify.success('Tipo de Permiso Creado', 'El tipo de permiso se ha creado correctamente');
         onClose();
         setFormData({
           nombre: '',
@@ -56,6 +59,9 @@ export const CreateTipoPermisoModal = ({ open, onClose }: CreateTipoPermisoModal
             fields: [],
           },
         });
+      },
+      onError: (error) => {
+        notify.apiError(error);
       },
     });
   };

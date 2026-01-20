@@ -37,7 +37,7 @@ export const Sidebar = () => {
                 className="font-bold text-lg"
                 style={{ color: 'var(--color-primary)' }}
               >
-                CiviGest
+                Tu Ciudad Digital
               </h2>
             )}
 

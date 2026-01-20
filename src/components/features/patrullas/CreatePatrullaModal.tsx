@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCreatePatrulla } from '@/hooks/queries/usePatrulla';
+import { useNotification } from '@/hooks/useNotification';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ interface CreatePatrullaModalProps {
 }
 
 export const CreatePatrullaModal = ({ open, onClose }: CreatePatrullaModalProps) => {
+  const notify = useNotification();
   const { mutate: createPatrulla, isPending } = useCreatePatrulla();
 
   const [formData, setFormData] = useState<CreatePatrulla>({
@@ -34,6 +36,7 @@ export const CreatePatrullaModal = ({ open, onClose }: CreatePatrullaModalProps)
     
     createPatrulla(formData, {
       onSuccess: () => {
+        notify.success('Patrulla Creada', 'La patrulla se ha creado correctamente');
         onClose();
         setFormData({
           marca: '',
@@ -42,6 +45,9 @@ export const CreatePatrullaModal = ({ open, onClose }: CreatePatrullaModalProps)
           numPatrulla: '',
           serie: '',
         });
+      },
+      onError: (error) => {
+        notify.apiError(error);
       },
     });
   };

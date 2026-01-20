@@ -23,6 +23,7 @@ import { useCreateUser } from '@/hooks/queries/useUsers';
 import { useRoles } from '@/hooks/queries/useRoles';
 import { useSubsedesForAccess } from '@/hooks/queries/useSubsedes';
 import { useUserLevel } from '@/hooks/useUserLevel';
+import { useNotification } from '@/hooks/useNotification';
 import { sedeService } from '@/services/sede.service';
 import { subsedeService } from '@/services/subsede.service';
 import type { CreateUserDto } from '@/types/user.types';
@@ -44,6 +45,7 @@ const DOCUMENT_TYPES = [
 
 export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) => {
   // ✅ Hooks centralizados
+  const notify = useNotification();
   const { userLevel, currentUser, canEditSede, canEditAccessLevel } = useUserLevel();
   const { mutate: createUser, isPending } = useCreateUser();
   const { data: rolesData } = useRoles({ isActive: true });
@@ -190,10 +192,12 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
     
     createUser(dataToSubmit, {
       onSuccess: () => {
+        notify.success('Usuario Creado', 'El usuario se ha creado correctamente');
         onOpenChange(false);
       },
       onError: (error: any) => {
         console.error('Error al crear usuario:', error);
+        notify.apiError(error);
         setErrors({
           submit: error?.response?.data?.message || 'Error al crear el usuario',
         });

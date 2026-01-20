@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCreateAgente } from '@/hooks/queries/useAgentes';
+import { useNotification } from '@/hooks/useNotification';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { tipoAgenteService } from '@/services/tipo-agente.service';
 import { departamentoService } from '@/services/departamento.service';
@@ -26,6 +27,7 @@ interface CreateAgenteModalProps {
 }
 
 export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => {
+  const notify = useNotification();
   const { mutate: createAgente, isPending } = useCreateAgente();
 
   const [formData, setFormData] = useState<CreateAgente>({
@@ -49,6 +51,7 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
     
     createAgente(formData, {
       onSuccess: () => {
+        notify.success('Agente Creado', 'El agente se ha creado correctamente');
         onClose();
         setFormData({
           nombres: '',
@@ -65,6 +68,9 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
           departamentoId: 0,
           patrullaId: 0,
         });
+      },
+      onError: (error) => {
+        notify.apiError(error);
       },
     });
   };

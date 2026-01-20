@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCreateDepartamento } from '@/hooks/queries/useDepartamento';
+import { useNotification } from '@/hooks/useNotification';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ interface CreateDepartamentoModalProps {
 }
 
 export const CreateDepartamentoModal = ({ open, onClose }: CreateDepartamentoModalProps) => {
+  const notify = useNotification();
   const { mutate: createDepartamento, isPending } = useCreateDepartamento();
 
   const [formData, setFormData] = useState<CreateDepartamento>({
@@ -30,8 +32,12 @@ export const CreateDepartamentoModal = ({ open, onClose }: CreateDepartamentoMod
     e.preventDefault();
     createDepartamento(formData, {
       onSuccess: () => {
+        notify.success('Departamento Creado', 'El departamento se ha creado correctamente');
         onClose();
         setFormData({ nombre: '', descripcion: '' });
+      },
+      onError: (error) => {
+        notify.apiError(error);
       },
     });
   };
