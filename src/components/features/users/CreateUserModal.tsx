@@ -44,7 +44,7 @@ const DOCUMENT_TYPES = [
 
 export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) => {
   // ✅ Hooks centralizados
-  const { userLevel, currentUser, canEditSede, canEditSubsede, canEditAccessLevel } = useUserLevel();
+  const { userLevel, currentUser, canEditSede, canEditAccessLevel } = useUserLevel();
   const { mutate: createUser, isPending } = useCreateUser();
   const { data: rolesData } = useRoles({ isActive: true });
   
@@ -111,36 +111,11 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
       documentNumber: '',
       roleIds: [] as number[],
       address: '',
+      accessLevel: 'SUBSEDE' as const, // Por defecto Municipal
+      sedeId: userLevel === 'ESTATAL' ? currentUser?.sedeId || 0 : 0,
     };
 
-    // Si es municipal, auto-asignar su municipio y sede
-    // NO usar subsedeAccessIds, solo subsedeId
-    if (userLevel === 'MUNICIPAL') {
-      return {
-        ...baseData,
-        accessLevel: 'SUBSEDE',
-        sedeId: currentUser?.sedeId || 0,
-        subsedeId: currentUser?.subsedeId || undefined,
-        // NO incluir subsedeAccessIds para MUNICIPAL
-      };
-    }
-
-    // Si es estatal o super admin, usar subsedeAccessIds para accesos múltiples
-    if (userLevel === 'ESTATAL' || userLevel === 'SUPER_ADMIN') {
-      return {
-        ...baseData,
-        accessLevel: 'SUBSEDE',
-        sedeId: userLevel === 'ESTATAL' ? currentUser?.sedeId || 0 : 0,
-        subsedeAccessIds: [] as number[],
-      };
-    }
-
-    // Fallback
-    return {
-      ...baseData,
-      accessLevel: 'SUBSEDE',
-      sedeId: 0,
-    };
+    return baseData;
   };
 
   const [formData, setFormData] = useState<Partial<CreateUserDto>>(getInitialFormData());
@@ -173,26 +148,23 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
     if (!formData.roleIds || formData.roleIds.length === 0) {
       newErrors.roleIds = 'Debe seleccionar al menos un rol';
     }
-    if (formData.accessLevel === 'SUBSEDE' && !formData.subsedeId) {
-      newErrors.subsedeId = 'Debe seleccionar un municipio';
-    }
+    
+    // Validar sede
     if (!formData.sedeId || formData.sedeId === 0) {
       newErrors.sedeId = 'Debe seleccionar un estado';
     }
     
-    // ✅ Validar accesos según nivel del usuario
-    if (userLevel === 'MUNICIPAL') {
-      // Municipal SOLO usa subsedeId (no subsedeAccessIds)
-      // Ya validado arriba con la validación de subsedeId
-    } else if (userLevel === 'ESTATAL' || userLevel === 'SUPER_ADMIN') {
-      // Estatal y Super Admin usan subsedeAccessIds para accesos múltiples
-      if (userLevel === 'ESTATAL') {
-        // ESTATAL debe seleccionar al menos una subsede
-        if (!formData.subsedeAccessIds || formData.subsedeAccessIds.length === 0) {
-          newErrors.subsedeAccessIds = 'Debe seleccionar al menos un municipio';
-        }
+    // ✅ Validar accesos según el NIVEL DE ACCESO seleccionado en el formulario
+    if (formData.accessLevel === 'SUBSEDE') {
+      // Si el nivel es SUBSEDE (Municipal), debe seleccionar UN solo municipio
+      if (!formData.subsedeId) {
+        newErrors.subsedeId = 'Debe seleccionar un municipio';
       }
-      // SUPER_ADMIN: subsedeAccessIds es opcional
+    } else if (formData.accessLevel === 'SEDE') {
+      // Si el nivel es SEDE (Estatal), debe seleccionar al menos un municipio (accesos múltiples)
+      if (!formData.subsedeAccessIds || formData.subsedeAccessIds.length === 0) {
+        newErrors.subsedeAccessIds = 'Debe seleccionar al menos un municipio';
+      }
     }
 
     setErrors(newErrors);
@@ -205,15 +177,16 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
 
     if (!validateForm()) return;
 
-    // ✅ Limpiar datos según el nivel del usuario
+    // ✅ Limpiar datos según el NIVEL DE ACCESO seleccionado en el formulario
     const dataToSubmit = { ...formData } as CreateUserDto;
     
-    // Si es MUNICIPAL, NO enviar subsedeAccessIds (solo usar subsedeId)
-    if (userLevel === 'MUNICIPAL') {
+    if (formData.accessLevel === 'SUBSEDE') {
+      // Si es SUBSEDE (Municipal), NO enviar subsedeAccessIds (solo usar subsedeId)
       delete dataToSubmit.subsedeAccessIds;
+    } else if (formData.accessLevel === 'SEDE') {
+      // Si es SEDE (Estatal), NO enviar subsedeId (solo usar subsedeAccessIds)
+      delete dataToSubmit.subsedeId;
     }
-    // Si es ESTATAL o SUPER_ADMIN, pueden enviar subsedeAccessIds
-    // pero NO necesitan subsedeId como campo principal (se maneja en el backend)
     
     createUser(dataToSubmit, {
       onSuccess: () => {
@@ -439,14 +412,17 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
               </div>
             )}
 
-            {/* ✅ Estado (Sede) - Solo SUPER_ADMIN y si accessLevel es SUBSEDE */}
-            {canEditSede && formData.accessLevel === 'SUBSEDE' && (
+            {/* ✅ Estado (Sede) - Solo SUPER_ADMIN puede cambiar el estado */}
+            {canEditSede && (
               <div className="space-y-2">
-                <Label>Estado {userLevel === 'SUPER_ADMIN' ? '' : '*'}</Label>
+                <Label>Estado *</Label>
                 <SearchableSelect
                   placeholder="Seleccionar estado"
                   value={selectedSedeId || 0}
-                  onChange={(value) => setSelectedSedeId(Number(value))}
+                  onChange={(value) => {
+                    setSelectedSedeId(Number(value));
+                    handleChange('sedeId', Number(value));
+                  }}
                   queryKey={['sedes-modal-create-user']}
                   queryFn={async ({ page, search, limit }) => {
                     const response = await sedeService.getAll({
@@ -458,54 +434,62 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
                   }}
                   getOptionLabel={(item: Sede) => item.name}
                   getOptionValue={(item: Sede) => item.id}
+                  className={errors.sedeId ? 'border-red-500' : ''}
                 />
+                {errors.sedeId && <p className="text-xs text-red-600">{errors.sedeId}</p>}
               </div>
             )}
 
-            {/* ✅ Municipio (Subsede) - Si accessLevel es SUBSEDE y puede editarlo */}
-            {formData.accessLevel === 'SUBSEDE' && canEditSubsede && (
-              <div className="space-y-2">
-                <Label>Municipio *</Label>
-                <SearchableSelect
-                  placeholder="Seleccionar municipio"
-                  value={formData.subsedeId || 0}
-                  onChange={(value) => handleChange('subsedeId', Number(value))}
-                  queryKey={['subsedes-modal-create-user', selectedSedeId || currentUser?.sedeId || 'all']}
-                  queryFn={async ({ page, search, limit }) => {
-                    const params: any = { page, search, limit };
-                    // Si es estatal, filtrar por su sede
-                    if (userLevel === 'ESTATAL') {
-                      params.sedeId = currentUser?.sedeId;
-                    } else if (selectedSedeId) {
-                      params.sedeId = selectedSedeId;
-                    }
-                    const response = await subsedeService.getAll(params);
-                    return response.data;
-                  }}
-                  getOptionLabel={(item: Subsede) => item.name}
-                  getOptionValue={(item: Subsede) => item.id}
-                  className={errors.subsedeId ? 'border-red-500' : ''}
-                />
-                {errors.subsedeId && <p className="text-xs text-red-600">{errors.subsedeId}</p>}
-              </div>
-            )}          {/* ✅ Mostrar municipio actual si es MUNICIPAL (no editable) */}
-          {userLevel === 'MUNICIPAL' && currentUser?.subsedeId && (
+          </div>
+
+          {/* ✅ Mostrar estado asignado si es ESTATAL (no editable) */}
+          {userLevel === 'ESTATAL' && currentUser?.sedeId && (
             <div className="space-y-2">
-              <Label>Municipio Asignado</Label>
+              <Label>Estado Asignado</Label>
               <Input
-                value={`Municipio ID: ${currentUser.subsedeId}`}
+                value={`Estado ID: ${currentUser.sedeId}`}
                 disabled
                 className="bg-gray-100"
               />
               <p className="text-xs text-gray-500">
-                Los usuarios que crees tendrán acceso a tu municipio
+                Los usuarios que crees tendrán acceso a los municipios de tu estado
               </p>
             </div>
           )}
-        </div>
 
-        {/* ✅ SECCIÓN: ACCESOS MÚLTIPLES A SUBSEDES */}
-        {(userLevel === 'SUPER_ADMIN' || userLevel === 'ESTATAL') && (
+        {/* ✅ SELECTOR DE MUNICIPIO ÚNICO - Cuando el Nivel de Acceso seleccionado es SUBSEDE (Municipal) */}
+        {formData.accessLevel === 'SUBSEDE' && (
+          <div className="space-y-2">
+            <Label>Municipio *</Label>
+            <p className="text-xs text-gray-500 mb-2">
+              Seleccione el municipio al que tendrá acceso este usuario
+            </p>
+            <SearchableSelect
+              placeholder="Seleccionar municipio"
+              value={formData.subsedeId || 0}
+              onChange={(value) => handleChange('subsedeId', Number(value))}
+              queryKey={['subsedes-modal-create-user-municipal', selectedSedeId || currentUser?.sedeId || 'all']}
+              queryFn={async ({ page, search, limit }) => {
+                const params: any = { page, search, limit };
+                // Filtrar por sede según el usuario autenticado
+                if (userLevel === 'ESTATAL') {
+                  params.sedeId = currentUser?.sedeId;
+                } else if (selectedSedeId) {
+                  params.sedeId = selectedSedeId;
+                }
+                const response = await subsedeService.getAll(params);
+                return response.data;
+              }}
+              getOptionLabel={(item: Subsede) => item.name}
+              getOptionValue={(item: Subsede) => item.id}
+              className={errors.subsedeId ? 'border-red-500' : ''}
+            />
+            {errors.subsedeId && <p className="text-xs text-red-600">{errors.subsedeId}</p>}
+          </div>
+        )}
+
+        {/* ✅ CHECKBOXES MÚLTIPLES - Cuando el Nivel de Acceso seleccionado es SEDE (Estatal) */}
+        {formData.accessLevel === 'SEDE' && (
           <div className="space-y-2">
             <Label>
               Accesos a Municipios {userLevel === 'ESTATAL' ? '*' : '(opcional)'}
@@ -513,9 +497,17 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
             <p className="text-xs text-gray-500 mb-2">
               {userLevel === 'ESTATAL'
                 ? 'Seleccione los municipios de su estado a los que el usuario tendrá acceso'
-                : 'Seleccione los municipios a los que el usuario tendrá acceso'}
+                : selectedSedeId 
+                  ? 'Seleccione los municipios a los que el usuario tendrá acceso'
+                  : 'Primero seleccione un estado para ver sus municipios'}
             </p>
-            {loadingSubsedes ? (
+            {!selectedSedeId && userLevel === 'SUPER_ADMIN' ? (
+              <div className="p-4 neomorph-flat rounded-lg bg-yellow-50 border border-yellow-200">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ Debe seleccionar un estado primero para ver los municipios disponibles
+                </p>
+              </div>
+            ) : loadingSubsedes ? (
               <div className="flex items-center justify-center p-4 neomorph-flat rounded-lg">
                 <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
                 <span className="ml-2 text-sm text-gray-500">Cargando municipios...</span>
@@ -539,29 +531,12 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
               </div>
             ) : (
               <p className="text-sm text-gray-500 p-4 neomorph-flat rounded-lg">
-                {userLevel === 'SUPER_ADMIN' && !selectedSedeId
-                  ? 'Seleccione un estado primero para ver sus municipios'
-                  : 'No hay municipios disponibles'}
+                No hay municipios disponibles para el estado seleccionado
               </p>
             )}
             {errors.subsedeAccessIds && (
               <p className="text-xs text-red-600">{errors.subsedeAccessIds}</p>
             )}
-          </div>
-        )}
-
-        {/* ✅ Mostrar accesos auto-asignados para MUNICIPAL */}
-        {userLevel === 'MUNICIPAL' && currentUser?.subsedeId && (
-          <div className="space-y-2">
-            <Label>Acceso del Nuevo Usuario</Label>
-            <div className="p-4 neomorph-flat rounded-lg bg-blue-50 border border-blue-200">
-              <p className="text-sm text-blue-800 font-medium">
-                ✓ El usuario tendrá acceso a tu municipio (ID: {currentUser.subsedeId})
-              </p>
-              <p className="text-xs text-blue-600 mt-1">
-                Este acceso se asigna automáticamente
-              </p>
-            </div>
           </div>
         )}
 

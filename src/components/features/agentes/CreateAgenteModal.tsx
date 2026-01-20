@@ -1,5 +1,9 @@
 import { useState } from 'react';
 import { useCreateAgente } from '@/hooks/queries/useAgentes';
+import { SearchableSelect } from '@/components/common/SearchableSelect';
+import { tipoAgenteService } from '@/services/tipo-agente.service';
+import { departamentoService } from '@/services/departamento.service';
+import { patrullaService } from '@/services/patrulla.service';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +16,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import type { CreateAgente } from '@/types/agente.type';
+import type { TipoAgente } from '@/types/tipo-agente.type';
+import type { Departamento } from '@/types/departamento.type';
+import type { Patrulla } from '@/types/patrulla.type';
 
 interface CreateAgenteModalProps {
   open: boolean;
@@ -156,36 +163,64 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
 
                   <div>
                     <Label htmlFor="tipoId">Tipo de Agente *</Label>
-                    <Input
-                      id="tipoId"
-                      type="number"
-                      value={formData.tipoId || ''}
-                      onChange={(e) => handleChange('tipoId', parseInt(e.target.value))}
-                      required
-                      placeholder="ID del tipo"
+                    <SearchableSelect
+                      placeholder="Seleccionar tipo de agente"
+                      value={formData.tipoId || 0}
+                      onChange={(value) => handleChange('tipoId', Number(value))}
+                      queryKey={['tipos-agente-select']}
+                      queryFn={async ({ page, search, limit }) => {
+                        const response = await tipoAgenteService.getAll({
+                          page,
+                          search,
+                          limit,
+                          isActive: true,
+                        });
+                        return response.data;
+                      }}
+                      getOptionLabel={(item: TipoAgente) => item.tipo}
+                      getOptionValue={(item: TipoAgente) => item.id}
                     />
                   </div>
 
                   <div>
                     <Label htmlFor="departamentoId">Departamento *</Label>
-                    <Input
-                      id="departamentoId"
-                      type="number"
-                      value={formData.departamentoId || ''}
-                      onChange={(e) => handleChange('departamentoId', parseInt(e.target.value))}
-                      required
-                      placeholder="ID del departamento"
+                    <SearchableSelect
+                      placeholder="Seleccionar departamento"
+                      value={formData.departamentoId || 0}
+                      onChange={(value) => handleChange('departamentoId', Number(value))}
+                      queryKey={['departamentos-select']}
+                      queryFn={async ({ page, search, limit }) => {
+                        const response = await departamentoService.getAll({
+                          page,
+                          search,
+                          limit,
+                          isActive: true,
+                        });
+                        return response.data;
+                      }}
+                      getOptionLabel={(item: Departamento) => item.nombre}
+                      getOptionValue={(item: Departamento) => item.id}
                     />
                   </div>
 
                   <div>
                     <Label htmlFor="patrullaId">Patrulla (Opcional)</Label>
-                    <Input
-                      id="patrullaId"
-                      type="number"
-                      value={formData.patrullaId || ''}
-                      onChange={(e) => handleChange('patrullaId', parseInt(e.target.value))}
-                      placeholder="ID de la patrulla"
+                    <SearchableSelect
+                      placeholder="Seleccionar patrulla"
+                      value={formData.patrullaId || 0}
+                      onChange={(value) => handleChange('patrullaId', Number(value))}
+                      queryKey={['patrullas-select']}
+                      queryFn={async ({ page, search, limit }) => {
+                        const response = await patrullaService.getAll({
+                          page,
+                          search,
+                          limit,
+                          isActive: true,
+                        });
+                        return response.data;
+                      }}
+                      getOptionLabel={(item: Patrulla) => `${item.numPatrulla} - ${item.marca} ${item.modelo}`}
+                      getOptionValue={(item: Patrulla) => item.id}
                     />
                   </div>
                 </div>

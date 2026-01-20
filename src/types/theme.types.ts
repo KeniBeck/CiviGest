@@ -18,3 +18,11 @@ export interface Theme {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface GetThemeParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    isActive?: boolean;
+    isDefault?: boolean;
+}

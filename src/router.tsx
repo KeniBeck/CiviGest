@@ -14,6 +14,7 @@ import { PermisoPage } from "./pages/permiso/PermisoPage";
 import { TipoAgentePage } from "./pages/tipo-agente/TipoAgentePage";
 import { DepartamentoPage } from "./pages/departamento/DepartamentoPage";
 import { MultasPage } from "./pages/multas/MultasPage";
+import { ConfiguracionPage } from "./pages/configuracion/ConfiguracionPage";
 
 export const router = createBrowserRouter([
   {
@@ -73,6 +74,10 @@ export const router = createBrowserRouter([
           {
             path: "/subsedes",
             element: <SubsedesPage />,
+          },
+          {
+            path: "/configuracion",
+            element: <ConfiguracionPage />,
           },
           // Agregar más rutas aquí cuando se creen los módulos
         ],
