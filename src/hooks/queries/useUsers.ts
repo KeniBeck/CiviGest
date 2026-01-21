@@ -83,3 +83,19 @@ export const useDeleteUser = () => {
     },
   });
 };
+
+// Toggle active/inactive usuario
+export const useToggleUserActive = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const response = await userService.toggleActive(id);
+      return response.data;
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: userKeys.detail(id) });
+    },
+  });
+};

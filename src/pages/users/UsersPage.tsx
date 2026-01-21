@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Edit, Trash, UserPlus } from "lucide-react";
+import { Edit, Trash, UserPlus, Power } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { Filters } from "@/components/common/Filters";
 import { DataTable } from "@/components/common/DataTable";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { useUsers, useDeleteUser } from "@/hooks/queries/useUsers";
+import { useUsers, useDeleteUser, useToggleUserActive } from "@/hooks/queries/useUsers";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useNotification } from "@/hooks/useNotification";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,9 @@ const UsersPage = () => {
 
   // ✅ Estado del diálogo de confirmación
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [toggleConfirmOpen, setToggleConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<{ id: number; name: string } | null>(null);
+  const [userToToggle, setUserToToggle] = useState<{ id: number; name: string; isActive: boolean } | null>(null);
 
   const notify = useNotification();
 
@@ -64,6 +66,7 @@ const UsersPage = () => {
   });
 
   const { mutate: deleteUser, isPending: isDeleting } = useDeleteUser();
+  const { mutate: toggleUserActive, isPending: isToggling } = useToggleUserActive();
 
   const handleDelete = (user: User) => {
     setUserToDelete({ 
@@ -83,6 +86,33 @@ const UsersPage = () => {
           `El usuario "${userToDelete.name}" ha sido eliminado correctamente`
         );
         setUserToDelete(null);
+      },
+      onError: (error) => {
+        notify.apiError(error);
+      },
+    });
+  };
+
+  const handleToggle = (user: User) => {
+    setUserToToggle({ 
+      id: user.id, 
+      name: `${user.firstName} ${user.lastName}`,
+      isActive: user.isActive 
+    });
+    setToggleConfirmOpen(true);
+  };
+
+  const confirmToggle = () => {
+    if (!userToToggle) return;
+    
+    toggleUserActive(userToToggle.id, {
+      onSuccess: () => {
+        const estado = userToToggle.isActive ? 'desactivado' : 'activado';
+        notify.success(
+          'Estado Actualizado',
+          `El usuario "${userToToggle.name}" ha sido ${estado} correctamente`
+        );
+        setUserToToggle(null);
       },
       onError: (error) => {
         notify.apiError(error);
@@ -352,8 +382,22 @@ const UsersPage = () => {
             <Button
               size="sm"
               variant="outline"
+              onClick={() => handleToggle(user)}
+              disabled={isToggling || isDeleting}
+              title={user.isActive ? 'Desactivar usuario' : 'Activar usuario'}
+              className={
+                user.isActive
+                  ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-50'
+                  : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+              }
+            >
+              <Power className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => handleDelete(user)}
-              disabled={isDeleting}
+              disabled={isDeleting || isToggling}
               title="Eliminar usuario"
               className="text-red-600 hover:text-red-700 hover:bg-red-50"
             >
@@ -387,6 +431,19 @@ const UsersPage = () => {
         variant="danger"
         onConfirm={confirmDelete}
         isLoading={isDeleting}
+      />
+
+      {/* ✅ Diálogo de confirmación para toggle */}
+      <ConfirmDialog
+        open={toggleConfirmOpen}
+        onOpenChange={setToggleConfirmOpen}
+        title={userToToggle?.isActive ? "Desactivar Usuario" : "Activar Usuario"}
+        description={`¿Estás seguro de que deseas ${userToToggle?.isActive ? "desactivar" : "activar"} al usuario "${userToToggle?.name}"?`}
+        confirmText={userToToggle?.isActive ? "Desactivar" : "Activar"}
+        cancelText="Cancelar"
+        variant={userToToggle?.isActive ? "warning" : "success"}
+        onConfirm={confirmToggle}
+        isLoading={isToggling}
       />
     </div>
   );
