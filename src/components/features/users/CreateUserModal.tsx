@@ -151,16 +151,22 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
       newErrors.roleIds = 'Debe seleccionar al menos un rol';
     }
     
-    // Validar sede
-    if (!formData.sedeId || formData.sedeId === 0) {
+    // Validar sede (excepto si es MUNICIPAL que usa automáticamente su sede)
+    if (userLevel !== 'MUNICIPAL' && (!formData.sedeId || formData.sedeId === 0)) {
       newErrors.sedeId = 'Debe seleccionar un estado';
     }
     
     // ✅ Validar accesos según el NIVEL DE ACCESO seleccionado en el formulario
     if (formData.accessLevel === 'SUBSEDE') {
-      // Si el nivel es SUBSEDE (Municipal), debe seleccionar UN solo municipio
-      if (!formData.subsedeId) {
-        newErrors.subsedeId = 'Debe seleccionar un municipio';
+      // Si el nivel es SUBSEDE (Municipal)
+      if (userLevel === 'MUNICIPAL') {
+        // Si es MUNICIPAL, no validar subsedeId porque se asigna automáticamente
+        // El backend usará currentUser.subsedeId
+      } else {
+        // Si es SUPER_ADMIN o ESTATAL, debe seleccionar un municipio
+        if (!formData.subsedeId) {
+          newErrors.subsedeId = 'Debe seleccionar un municipio';
+        }
       }
     } else if (formData.accessLevel === 'SEDE') {
       // Si el nivel es SEDE (Estatal), debe seleccionar al menos un municipio (accesos múltiples)
@@ -182,6 +188,12 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
     // ✅ Limpiar datos según el NIVEL DE ACCESO seleccionado en el formulario
     const dataToSubmit = { ...formData } as CreateUserDto;
     
+    // ✅ Si es MUNICIPAL, asignar automáticamente sedeId y subsedeId del usuario logueado
+    if (userLevel === 'MUNICIPAL') {
+      dataToSubmit.sedeId = currentUser?.sedeId || 0;
+      dataToSubmit.subsedeId = currentUser?.subsedeId || 0;
+    }
+    
     if (formData.accessLevel === 'SUBSEDE') {
       // Si es SUBSEDE (Municipal), NO enviar subsedeAccessIds (solo usar subsedeId)
       delete dataToSubmit.subsedeAccessIds;
@@ -189,6 +201,8 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
       // Si es SEDE (Estatal), NO enviar subsedeId (solo usar subsedeAccessIds)
       delete dataToSubmit.subsedeId;
     }
+    
+    console.log('📤 Enviando datos al backend:', dataToSubmit);
     
     createUser(dataToSubmit, {
       onSuccess: () => {
@@ -450,45 +464,72 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
           {userLevel === 'ESTATAL' && currentUser?.sedeId && (
             <div className="space-y-2">
               <Label>Estado Asignado</Label>
-              <Input
-                value={`Estado ID: ${currentUser.sedeId}`}
-                disabled
-                className="bg-gray-100"
-              />
-              <p className="text-xs text-gray-500">
-                Los usuarios que crees tendrán acceso a los municipios de tu estado
-              </p>
+              <div className="p-3 neomorph-flat rounded-lg bg-blue-50 border border-blue-200">
+                <p className="text-sm text-blue-800">
+                  ✓ Los usuarios que crees tendrán acceso a los municipios de tu estado
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ✅ Mostrar estado y municipio asignado si es MUNICIPAL (no editable) */}
+          {userLevel === 'MUNICIPAL' && currentUser?.sedeId && currentUser?.subsedeId && (
+            <div className="space-y-2">
+              <Label>Estado y Municipio Asignado</Label>
+              <div className="p-3 neomorph-flat rounded-lg bg-blue-50 border border-blue-200">
+                <p className="text-sm text-blue-800 font-medium">
+                  ✓ Los usuarios que crees tendrán acceso automáticamente a tu municipio
+                </p>
+              </div>
             </div>
           )}
 
         {/* ✅ SELECTOR DE MUNICIPIO ÚNICO - Cuando el Nivel de Acceso seleccionado es SUBSEDE (Municipal) */}
         {formData.accessLevel === 'SUBSEDE' && (
           <div className="space-y-2">
-            <Label>Municipio *</Label>
-            <p className="text-xs text-gray-500 mb-2">
-              Seleccione el municipio al que tendrá acceso este usuario
-            </p>
-            <SearchableSelect
-              placeholder="Seleccionar municipio"
-              value={formData.subsedeId || 0}
-              onChange={(value) => handleChange('subsedeId', Number(value))}
-              queryKey={['subsedes-modal-create-user-municipal', selectedSedeId || currentUser?.sedeId || 'all']}
-              queryFn={async ({ page, search, limit }) => {
-                const params: any = { page, search, limit };
-                // Filtrar por sede según el usuario autenticado
-                if (userLevel === 'ESTATAL') {
-                  params.sedeId = currentUser?.sedeId;
-                } else if (selectedSedeId) {
-                  params.sedeId = selectedSedeId;
-                }
-                const response = await subsedeService.getAll(params);
-                return response.data;
-              }}
-              getOptionLabel={(item: Subsede) => item.name}
-              getOptionValue={(item: Subsede) => item.id}
-              className={errors.subsedeId ? 'border-red-500' : ''}
-            />
-            {errors.subsedeId && <p className="text-xs text-red-600">{errors.subsedeId}</p>}
+            {userLevel === 'MUNICIPAL' ? (
+              // ✅ Si es MUNICIPAL, mostrar el municipio asignado (no editable)
+              <>
+                <Label>Municipio Asignado</Label>
+                <div className="p-3 neomorph-flat rounded-lg bg-blue-50 border border-blue-200">
+                  <p className="text-sm text-blue-800">
+                    ✓ El usuario que crees tendrá acceso a tu municipio
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Los usuarios creados heredarán tu estado y municipio automáticamente
+                  </p>
+                </div>
+              </>
+            ) : (
+              // ✅ Si es SUPER_ADMIN o ESTATAL, puede seleccionar el municipio
+              <>
+                <Label>Municipio *</Label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Seleccione el municipio al que tendrá acceso este usuario
+                </p>
+                <SearchableSelect
+                  placeholder="Seleccionar municipio"
+                  value={formData.subsedeId || 0}
+                  onChange={(value) => handleChange('subsedeId', Number(value))}
+                  queryKey={['subsedes-modal-create-user-municipal', selectedSedeId || currentUser?.sedeId || 'all']}
+                  queryFn={async ({ page, search, limit }) => {
+                    const params: any = { page, search, limit };
+                    // Filtrar por sede según el usuario autenticado
+                    if (userLevel === 'ESTATAL') {
+                      params.sedeId = currentUser?.sedeId;
+                    } else if (selectedSedeId) {
+                      params.sedeId = selectedSedeId;
+                    }
+                    const response = await subsedeService.getAll(params);
+                    return response.data;
+                  }}
+                  getOptionLabel={(item: Subsede) => item.name}
+                  getOptionValue={(item: Subsede) => item.id}
+                  className={errors.subsedeId ? 'border-red-500' : ''}
+                />
+                {errors.subsedeId && <p className="text-xs text-red-600">{errors.subsedeId}</p>}
+              </>
+            )}
           </div>
         )}
 

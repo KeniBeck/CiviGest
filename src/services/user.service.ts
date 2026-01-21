@@ -36,4 +36,10 @@ export const userService = {
     const response = await api.delete(`/users/${id}`);
     return response;
   },
+
+  // Toggle active/inactive
+  toggleActive: async (id: number) => {
+    const response = await api.patch<User>(`/users/${id}/toggle-active`);
+    return response;
+  },
 };

@@ -42,6 +42,32 @@ export interface User {
       level: 'SUPER_ADMIN' | 'ESTATAL' | 'MUNICIPAL' | 'OPERATIVO';
     };
   }[];
+  sedeAccess?: {
+    id: number;
+    userId: number;
+    sedeId: number;
+    grantedAt: string;
+    grantedBy: number;
+    isActive: boolean;
+    sede: {
+      id: number;
+      name: string;
+      code: string;
+    };
+  }[];
+  subsedeAccess?: {
+    id: number;
+    userId: number;
+    subsedeId: number;
+    grantedAt: string;
+    grantedBy: number;
+    isActive: boolean;
+    subsede: {
+      id: number;
+      name: string;
+      code: string;
+    };
+  }[];
   _count: {
     sedeAccess: number;
     subsedeAccess: number;

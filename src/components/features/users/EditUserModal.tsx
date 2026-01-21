@@ -101,10 +101,27 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
 
   const [formData, setFormData] = useState<Partial<UpdateUserDto>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isFormReady, setIsFormReady] = useState(false);
 
   // ✅ Cargar datos del usuario cuando se obtienen
   useEffect(() => {
     if (userData && open) {
+      // Extraer los IDs de subsedes del array subsedeAccess
+      const subsedeAccessIds = userData.subsedeAccess?.map(sa => sa.subsedeId) || [];
+      
+      console.log('📋 Cargando datos del usuario en modal:', {
+        accessLevel: userData.accessLevel,
+        documentType: userData.documentType,
+        sedeId: userData.sedeId,
+        subsedeId: userData.subsedeId,
+        subsedeAccess: userData.subsedeAccess,
+        subsedeAccessIds,
+      });
+      
+      // Establecer sedeId primero
+      setSelectedSedeId(userData.sedeId);
+      
+      // Luego actualizar el formulario
       setFormData({
         email: userData.email,
         username: userData.username,
@@ -115,15 +132,18 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
         documentType: userData.documentType,
         documentNumber: userData.documentNumber,
         accessLevel: userData.accessLevel,
+        sedeId: userData.sedeId, // ✅ Agregado sedeId al formData
         subsedeId: userData.subsedeId || undefined,
         roleIds: userData.roles.map(r => r.role.id),
-        // Solo cargar subsedeAccessIds si NO es MUNICIPAL
-        ...(userLevel !== 'MUNICIPAL' && { subsedeAccessIds: [] }),
+        // Cargar subsedeAccessIds desde la respuesta
+        subsedeAccessIds: subsedeAccessIds.length > 0 ? subsedeAccessIds : [],
         address: userData.address || '',
       });
-      setSelectedSedeId(userData.sedeId);
+      
+      // Marcar como listo después de un pequeño delay para asegurar el render
+      setTimeout(() => setIsFormReady(true), 100);
     }
-  }, [userData, open]);
+  }, [userData, open, userLevel]);
 
   // ✅ Reset form cuando se cierra
   useEffect(() => {
@@ -131,6 +151,7 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
       setFormData({});
       setErrors({});
       setSelectedSedeId(undefined);
+      setIsFormReady(false);
     }
   }, [open]);
 
@@ -176,6 +197,15 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
     if (userLevel === 'MUNICIPAL') {
       delete dataToSubmit.subsedeAccessIds;
     }
+
+    // 🔍 Debug: Verificar payload antes de enviar
+    console.log('🔍 [EditUserModal] Payload a enviar:', {
+      userId,
+      dataToSubmit,
+      accessLevel: dataToSubmit.accessLevel,
+      sedeId: dataToSubmit.sedeId,
+      subsedeId: dataToSubmit.subsedeId,
+    });
 
     updateUser(
       { id: userId, data: dataToSubmit as UpdateUserDto },
@@ -239,7 +269,7 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
     }
   };
 
-  if (isLoadingUser) {
+  if (isLoadingUser || !isFormReady) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl">
@@ -254,7 +284,10 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+      <DialogContent 
+        key={`edit-user-${userId}-${open ? 'open' : 'closed'}`}
+        className="max-w-2xl max-h-[90vh] flex flex-col p-0"
+      >
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-200">
           <DialogTitle>Editar Usuario</DialogTitle>
           <DialogDescription>
@@ -353,11 +386,12 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
             <div className="space-y-2">
               <Label htmlFor="documentType">Tipo de Documento *</Label>
               <Select
+                key={`documentType-${formData.documentType}`}
                 value={formData.documentType}
                 onValueChange={(value) => handleChange('documentType', value)}
               >
                 <SelectTrigger className="neomorph-input">
-                  <SelectValue />
+                  <SelectValue placeholder="Seleccionar tipo" />
                 </SelectTrigger>
                 <SelectContent>
                   {DOCUMENT_TYPES.map((doc) => (
@@ -388,11 +422,12 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
               <div className="space-y-2">
                 <Label htmlFor="accessLevel">Nivel de Acceso *</Label>
                 <Select
+                  key={`accessLevel-${formData.accessLevel}`}
                   value={formData.accessLevel}
                   onValueChange={(value) => handleChange('accessLevel', value as 'SEDE' | 'SUBSEDE')}
                 >
                   <SelectTrigger className="neomorph-input">
-                    <SelectValue />
+                    <SelectValue placeholder="Seleccionar nivel" />
                   </SelectTrigger>
                   <SelectContent>
                     {accessLevelOptions.map((option) => (
@@ -412,14 +447,17 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
                 <SearchableSelect
                   placeholder="Seleccionar estado"
                   value={selectedSedeId || 0}
-                  onChange={(value) => setSelectedSedeId(Number(value))}
+                  onChange={(value) => {
+                    const sedeId = Number(value);
+                    setSelectedSedeId(sedeId);
+                    handleChange('sedeId', sedeId); // ✅ Actualizar también formData.sedeId
+                  }}
                   queryKey={['sedes-modal-edit-user']}
                   queryFn={async ({ page, search, limit }) => {
                     const response = await sedeService.getAll({
                       page,
                       search,
                       limit,
-                      activatePaginated: true,
                     });
                     return response.data;
                   }}
@@ -439,7 +477,7 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
                   onChange={(value) => handleChange('subsedeId', Number(value))}
                   queryKey={['subsedes-modal-edit-user', selectedSedeId || currentUser?.sedeId || 'all']}
                   queryFn={async ({ page, search, limit }) => {
-                    const params: any = { page, search, limit, activatePaginated: true };
+                    const params: any = { page, search, limit };
                     if (userLevel === 'ESTATAL') {
                       params.sedeId = currentUser?.sedeId;
                     } else if (selectedSedeId) {
@@ -470,7 +508,8 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
           </div>
 
           {/* ✅ SECCIÓN: ACCESOS MÚLTIPLES A SUBSEDES */}
-          {(userLevel === 'SUPER_ADMIN' || userLevel === 'ESTATAL') && (
+          {/* Solo mostrar cuando el nivel de acceso sea SEDE (Estatal), no cuando sea SUBSEDE (Municipal) */}
+          {(userLevel === 'SUPER_ADMIN' || userLevel === 'ESTATAL') && formData.accessLevel === 'SEDE' && (
             <div className="space-y-2">
               <Label>
                 Accesos a Municipios {userLevel === 'ESTATAL' ? '*' : '(opcional)'}
@@ -480,6 +519,26 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
                   ? 'Seleccione los municipios de su estado a los que el usuario tendrá acceso'
                   : 'Seleccione los municipios a los que el usuario tendrá acceso'}
               </p>
+              
+              {/* Mostrar municipios actuales del usuario */}
+              {userData?.subsedeAccess && userData.subsedeAccess.length > 0 && (
+                <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm font-medium text-blue-900 mb-2">
+                    Municipios actuales del usuario:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {userData.subsedeAccess.map((access) => (
+                      <span
+                        key={access.id}
+                        className="inline-flex items-center px-2 py-1 rounded-md bg-blue-100 text-blue-800 text-xs font-medium"
+                      >
+                        {access.subsede.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               {loadingSubsedes ? (
                 <div className="flex items-center justify-center p-4 neomorph-flat rounded-lg">
                   <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
@@ -513,16 +572,21 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
           )}
 
           {/* ✅ Mostrar accesos auto-asignados para MUNICIPAL */}
-          {userLevel === 'MUNICIPAL' && currentUser?.subsedeId && (
+          {userLevel === 'MUNICIPAL' && currentUser?.subsedeId && userData && (
             <div className="space-y-2">
               <Label>Accesos del Usuario</Label>
               <div className="p-4 neomorph-flat rounded-lg bg-blue-50 border border-blue-200">
-                <p className="text-sm text-blue-800">
+                <p className="text-sm text-blue-800 font-medium mb-2">
                   ✓ El usuario tiene acceso a tu municipio
                 </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  Estado ID: {userData?.sedeId} | Municipio ID: {userData?.subsedeId}
-                </p>
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs text-blue-700">
+                    <span className="font-semibold">Estado:</span> {userData.sede?.name || 'N/A'}
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    <span className="font-semibold">Municipio:</span> {userData.subsede?.name || 'N/A'}
+                  </p>
+                </div>
               </div>
             </div>
           )}
