@@ -5,8 +5,10 @@ import {
   useToggleMulta,
 } from '@/hooks/queries/useMultas';
 import { useDepartamentos } from '@/hooks/queries/useDepartamento';
+import { useNotification } from '@/hooks/useNotification';
 import { CreateMultaModal } from '@/components/features/multas/CreateMultaModal';
 import { EditMultaModal } from '@/components/features/multas/EditMultaModal';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +17,7 @@ import { Loader2, Plus, Edit, Trash2, Power, Receipt } from 'lucide-react';
 import type { Multas } from '@/types/multas.type';
 
 export const MultasPage = () => {
+  const notify = useNotification();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState('');
@@ -22,6 +25,12 @@ export const MultasPage = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedMulta, setSelectedMulta] = useState<Multas | null>(null);
+
+  // Estados para ConfirmDialog
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [toggleConfirmOpen, setToggleConfirmOpen] = useState(false);
+  const [multaToDelete, setMultaToDelete] = useState<{ id: number; nombre: string } | null>(null);
+  const [multaToToggle, setMultaToToggle] = useState<{ id: number; nombre: string; isActive: boolean } | null>(null);
 
   // ✅ Obtener multas con React Query
   const { data, isLoading, error } = useMultas({
@@ -53,13 +62,46 @@ export const MultasPage = () => {
   };
 
   const handleDelete = (id: number, nombre: string) => {
-    if (window.confirm(`¿Estás seguro de eliminar la multa "${nombre}"?`)) {
-      deleteMulta(id);
-    }
+    setMultaToDelete({ id, nombre });
+    setDeleteConfirmOpen(true);
   };
 
-  const handleToggle = (id: number) => {
-    toggleMulta(id);
+  const confirmDelete = () => {
+    if (!multaToDelete) return;
+
+    deleteMulta(multaToDelete.id, {
+      onSuccess: () => {
+        notify.success('Multa Eliminada', 'La multa se ha eliminado correctamente');
+        setMultaToDelete(null);
+      },
+      onError: (error) => {
+        notify.apiError(error);
+      },
+    });
+  };
+
+  const handleToggle = (multa: Multas) => {
+    setMultaToToggle({ 
+      id: multa.id, 
+      nombre: multa.nombre, 
+      isActive: multa.isActive 
+    });
+    setToggleConfirmOpen(true);
+  };
+
+  const confirmToggle = () => {
+    if (!multaToToggle) return;
+
+    toggleMulta(multaToToggle.id, {
+      onSuccess: () => {
+        const estado = multaToToggle.isActive ? 'desactivada' : 'activada';
+        notify.success('Estado Actualizado', `La multa ha sido ${estado} correctamente`);
+        setMultaToToggle(null);
+      },
+      onError: (error) => {
+        notify.apiError(error);
+      },
+    });
   };
 
   const closeEditModal = () => {
@@ -131,13 +173,14 @@ export const MultasPage = () => {
             variant="outline"
             onClick={() => handleEdit(multa)}
             title="Editar"
+            className="hover:bg-blue-50 hover:text-blue-600"
           >
             <Edit className="h-4 w-4" />
           </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => handleToggle(multa.id)}
+            onClick={() => handleToggle(multa)}
             disabled={isToggling}
             className={
               multa.isActive
@@ -253,6 +296,32 @@ export const MultasPage = () => {
         open={isEditModalOpen}
         onClose={closeEditModal}
         multa={selectedMulta}
+      />
+
+      {/* Diálogo de confirmación para eliminar */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Eliminar Multa"
+        description={`¿Estás seguro de que deseas eliminar la multa "${multaToDelete?.nombre}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
+
+      {/* Diálogo de confirmación para toggle */}
+      <ConfirmDialog
+        open={toggleConfirmOpen}
+        onOpenChange={setToggleConfirmOpen}
+        title={multaToToggle?.isActive ? "Desactivar Multa" : "Activar Multa"}
+        description={`¿Estás seguro de que deseas ${multaToToggle?.isActive ? "desactivar" : "activar"} la multa "${multaToToggle?.nombre}"?`}
+        confirmText={multaToToggle?.isActive ? "Desactivar" : "Activar"}
+        cancelText="Cancelar"
+        variant={multaToToggle?.isActive ? "warning" : "success"}
+        onConfirm={confirmToggle}
+        isLoading={isToggling}
       />
     </div>
   );

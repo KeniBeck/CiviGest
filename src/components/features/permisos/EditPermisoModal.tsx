@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useUpdatePermiso } from '@/hooks/queries/usePermiso';
 import { useTipoPermisos } from '@/hooks/queries/useTipoPermiso';
+import { useNotification } from '@/hooks/useNotification';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,7 @@ interface EditPermisoModalProps {
 
 export const EditPermisoModal = ({ open, onClose, permiso }: EditPermisoModalProps) => {
   const { mutate: updatePermiso, isPending } = useUpdatePermiso();
+  const notify = useNotification();
   
   // Cargar tipos de permiso
   const { data: tiposPermisoData } = useTipoPermisos({ page: 1, limit: 100, isActive: true });
@@ -80,7 +82,11 @@ export const EditPermisoModal = ({ open, onClose, permiso }: EditPermisoModalPro
       { id: permiso.id, data: dataToSubmit },
       {
         onSuccess: () => {
+          notify.success('Permiso Actualizado', 'El permiso se ha actualizado correctamente');
           onClose();
+        },
+        onError: (error) => {
+          notify.apiError(error);
         },
       }
     );

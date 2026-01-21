@@ -4,8 +4,10 @@ import {
   useDeleteDepartamento,
   useToggleDepartamento,
 } from '@/hooks/queries/useDepartamento';
+import { useNotification } from '@/hooks/useNotification';
 import { CreateDepartamentoModal } from '@/components/features/departamentos/CreateDepartamentoModal';
 import { EditDepartamentoModal } from '@/components/features/departamentos/EditDepartamentoModal';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,12 +16,19 @@ import { Loader2, Plus, Edit, Trash2, Power, Building } from 'lucide-react';
 import type { Departamento } from '@/types/departamento.type';
 
 export const DepartamentoPage = () => {
+  const notify = useNotification();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedDepartamento, setSelectedDepartamento] = useState<Departamento | null>(null);
+
+  // Estados para ConfirmDialog
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [toggleConfirmOpen, setToggleConfirmOpen] = useState(false);
+  const [deptoToDelete, setDeptoToDelete] = useState<{ id: number; nombre: string } | null>(null);
+  const [deptoToToggle, setDeptoToToggle] = useState<{ id: number; nombre: string; isActive: boolean } | null>(null);
 
   // ✅ Obtener departamentos con React Query
   const { data, isLoading, error } = useDepartamentos({
@@ -43,13 +52,46 @@ export const DepartamentoPage = () => {
   };
 
   const handleDelete = (id: number, nombre: string) => {
-    if (window.confirm(`¿Estás seguro de eliminar el departamento "${nombre}"?`)) {
-      deleteDepartamento(id);
-    }
+    setDeptoToDelete({ id, nombre });
+    setDeleteConfirmOpen(true);
   };
 
-  const handleToggle = (id: number) => {
-    toggleDepartamento(id);
+  const confirmDelete = () => {
+    if (!deptoToDelete) return;
+
+    deleteDepartamento(deptoToDelete.id, {
+      onSuccess: () => {
+        notify.success('Departamento Eliminado', 'El departamento se ha eliminado correctamente');
+        setDeptoToDelete(null);
+      },
+      onError: (error) => {
+        notify.apiError(error);
+      },
+    });
+  };
+
+  const handleToggle = (departamento: Departamento) => {
+    setDeptoToToggle({ 
+      id: departamento.id, 
+      nombre: departamento.nombre, 
+      isActive: departamento.isActive 
+    });
+    setToggleConfirmOpen(true);
+  };
+
+  const confirmToggle = () => {
+    if (!deptoToToggle) return;
+
+    toggleDepartamento(deptoToToggle.id, {
+      onSuccess: () => {
+        const estado = deptoToToggle.isActive ? 'desactivado' : 'activado';
+        notify.success('Estado Actualizado', `El departamento ha sido ${estado} correctamente`);
+        setDeptoToToggle(null);
+      },
+      onError: (error) => {
+        notify.apiError(error);
+      },
+    });
   };
 
   const closeEditModal = () => {
@@ -110,13 +152,14 @@ export const DepartamentoPage = () => {
             variant="outline"
             onClick={() => handleEdit(departamento)}
             title="Editar"
+            className="hover:bg-blue-50 hover:text-blue-600"
           >
             <Edit className="h-4 w-4" />
           </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => handleToggle(departamento.id)}
+            onClick={() => handleToggle(departamento)}
             disabled={isToggling}
             className={
               departamento.isActive
@@ -215,6 +258,32 @@ export const DepartamentoPage = () => {
         open={isEditModalOpen}
         onClose={closeEditModal}
         departamento={selectedDepartamento}
+      />
+
+      {/* Diálogo de confirmación para eliminar */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Eliminar Departamento"
+        description={`¿Estás seguro de que deseas eliminar el departamento "${deptoToDelete?.nombre}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
+
+      {/* Diálogo de confirmación para toggle */}
+      <ConfirmDialog
+        open={toggleConfirmOpen}
+        onOpenChange={setToggleConfirmOpen}
+        title={deptoToToggle?.isActive ? "Desactivar Departamento" : "Activar Departamento"}
+        description={`¿Estás seguro de que deseas ${deptoToToggle?.isActive ? "desactivar" : "activar"} el departamento "${deptoToToggle?.nombre}"?`}
+        confirmText={deptoToToggle?.isActive ? "Desactivar" : "Activar"}
+        cancelText="Cancelar"
+        variant={deptoToToggle?.isActive ? "warning" : "success"}
+        onConfirm={confirmToggle}
+        isLoading={isToggling}
       />
     </div>
   );

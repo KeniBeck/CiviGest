@@ -1,20 +1,29 @@
 import { useState } from 'react';
 import { useTipoPermisos, useDeleteTipoPermiso, useToggleActiveTipoPermiso } from '@/hooks/queries/useTipoPermiso';
+import { useNotification } from '@/hooks/useNotification';
 import { CreateTipoPermisoModal } from '@/components/features/tipo-permisos/CreateTipoPermisoModal';
 import { EditTipoPermisoModal } from '@/components/features/tipo-permisos/EditTipoPermisoModal';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Pencil, Trash2, ToggleLeft, ToggleRight, FileText } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Power, FileText } from 'lucide-react';
 import type { TipoPermiso } from '@/types/tipo-permiso.type';
 
 export const TipoPermisoPage = () => {
+  const notify = useNotification();
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [search, setSearch] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTipoPermisoId, setSelectedTipoPermisoId] = useState<number | null>(null);
+
+  // Estados para ConfirmDialog
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [toggleConfirmOpen, setToggleConfirmOpen] = useState(false);
+  const [tipoToDelete, setTipoToDelete] = useState<{ id: number; nombre: string } | null>(null);
+  const [tipoToToggle, setTipoToToggle] = useState<{ id: number; nombre: string; isActive: boolean } | null>(null);
 
   // ✅ Obtener tipos de permiso con React Query
   const { data, isLoading, error } = useTipoPermisos({
@@ -28,26 +37,45 @@ export const TipoPermisoPage = () => {
   const { mutate: toggleActive, isPending: isToggling } = useToggleActiveTipoPermiso();
 
   // Handlers
-  const handleDelete = (id: number) => {
-    if (window.confirm('¿Estás seguro de eliminar este tipo de permiso?')) {
-      deleteTipoPermiso(id, {
-        onSuccess: () => {
-          console.log('Tipo de permiso eliminado exitosamente');
-        },
-        onError: (error) => {
-          console.error('Error al eliminar tipo de permiso:', error);
-        },
-      });
-    }
+  const handleDelete = (tipoPermiso: TipoPermiso) => {
+    setTipoToDelete({ id: tipoPermiso.id, nombre: tipoPermiso.nombre });
+    setDeleteConfirmOpen(true);
   };
 
-  const handleToggleActive = (id: number) => {
-    toggleActive(id, {
+  const confirmDelete = () => {
+    if (!tipoToDelete) return;
+
+    deleteTipoPermiso(tipoToDelete.id, {
       onSuccess: () => {
-        console.log('Estado del tipo de permiso actualizado');
+        notify.success('Tipo de Permiso Eliminado', 'El tipo de permiso se ha eliminado correctamente');
+        setTipoToDelete(null);
       },
       onError: (error) => {
-        console.error('Error al cambiar estado:', error);
+        notify.apiError(error);
+      },
+    });
+  };
+
+  const handleToggleActive = (tipoPermiso: TipoPermiso) => {
+    setTipoToToggle({ 
+      id: tipoPermiso.id, 
+      nombre: tipoPermiso.nombre, 
+      isActive: tipoPermiso.isActive 
+    });
+    setToggleConfirmOpen(true);
+  };
+
+  const confirmToggle = () => {
+    if (!tipoToToggle) return;
+
+    toggleActive(tipoToToggle.id, {
+      onSuccess: () => {
+        const estado = tipoToToggle.isActive ? 'desactivado' : 'activado';
+        notify.success('Estado Actualizado', `El tipo de permiso ha sido ${estado} correctamente`);
+        setTipoToToggle(null);
+      },
+      onError: (error) => {
+        notify.apiError(error);
       },
     });
   };
@@ -139,27 +167,32 @@ export const TipoPermisoPage = () => {
             size="sm"
             variant="outline"
             onClick={() => handleEdit(tipoPermiso.id)}
+            className="hover:bg-blue-50 hover:text-blue-600"
+            title="Editar"
           >
             <Pencil className="h-4 w-4" />
           </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => handleToggleActive(tipoPermiso.id)}
+            onClick={() => handleToggleActive(tipoPermiso)}
             disabled={isToggling}
+            className={
+              tipoPermiso.isActive
+                ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-50'
+                : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+            }
+            title={tipoPermiso.isActive ? 'Desactivar' : 'Activar'}
           >
-            {tipoPermiso.isActive ? (
-              <ToggleRight className="h-4 w-4" />
-            ) : (
-              <ToggleLeft className="h-4 w-4" />
-            )}
+            <Power className="h-4 w-4" />
           </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => handleDelete(tipoPermiso.id)}
+            onClick={() => handleDelete(tipoPermiso)}
             disabled={isDeleting}
             className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            title="Eliminar"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -240,6 +273,32 @@ export const TipoPermisoPage = () => {
           tipoPermisoId={selectedTipoPermisoId}
         />
       )}
+
+      {/* Diálogo de confirmación para eliminar */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Eliminar Tipo de Permiso"
+        description={`¿Estás seguro de que deseas eliminar el tipo de permiso "${tipoToDelete?.nombre}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
+
+      {/* Diálogo de confirmación para toggle */}
+      <ConfirmDialog
+        open={toggleConfirmOpen}
+        onOpenChange={setToggleConfirmOpen}
+        title={tipoToToggle?.isActive ? "Desactivar Tipo de Permiso" : "Activar Tipo de Permiso"}
+        description={`¿Estás seguro de que deseas ${tipoToToggle?.isActive ? "desactivar" : "activar"} el tipo de permiso "${tipoToToggle?.nombre}"?`}
+        confirmText={tipoToToggle?.isActive ? "Desactivar" : "Activar"}
+        cancelText="Cancelar"
+        variant={tipoToToggle?.isActive ? "warning" : "success"}
+        onConfirm={confirmToggle}
+        isLoading={isToggling}
+      />
     </div>
   );
 };

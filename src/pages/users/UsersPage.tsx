@@ -3,8 +3,10 @@ import { Edit, Trash, UserPlus } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { Filters } from "@/components/common/Filters";
 import { DataTable } from "@/components/common/DataTable";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { useUsers, useDeleteUser } from "@/hooks/queries/useUsers";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useNotification } from "@/hooks/useNotification";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { sedeService } from "@/services/sede.service";
@@ -25,6 +27,12 @@ const UsersPage = () => {
   // ✅ Estado del modal de edición
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+
+  // ✅ Estado del diálogo de confirmación
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<{ id: number; name: string } | null>(null);
+
+  const notify = useNotification();
 
   // ✅ Determinar rol del usuario autenticado
   const isSuperAdmin = currentUser?.roles.some((r) =>
@@ -55,12 +63,31 @@ const UsersPage = () => {
     ...(filters.subsedeId !== undefined && { subsedeId: filters.subsedeId }),
   });
 
-  const { mutate: deleteUser } = useDeleteUser();
+  const { mutate: deleteUser, isPending: isDeleting } = useDeleteUser();
 
-  const handleDelete = (id: number) => {
-    if (window.confirm("¿Estás seguro de eliminar este usuario?")) {
-      deleteUser(id);
-    }
+  const handleDelete = (user: User) => {
+    setUserToDelete({ 
+      id: user.id, 
+      name: `${user.firstName} ${user.lastName}` 
+    });
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (!userToDelete) return;
+    
+    deleteUser(userToDelete.id, {
+      onSuccess: () => {
+        notify.success(
+          'Usuario Eliminado',
+          `El usuario "${userToDelete.name}" ha sido eliminado correctamente`
+        );
+        setUserToDelete(null);
+      },
+      onError: (error) => {
+        notify.apiError(error);
+      },
+    });
   };
 
   // ✅ Abrir modal de edición
@@ -312,20 +339,23 @@ const UsersPage = () => {
           setFilters((prev) => ({ ...prev, limit, page: 1 }))
         }
         actions={(user) => (
-          <div className="flex gap-2">
+          <div className="flex gap-1">
             <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 w-8"
+              size="sm"
+              variant="outline"
               onClick={() => handleEdit(user)}
+              title="Editar usuario"
+              className="hover:bg-blue-50 hover:text-blue-600"
             >
               <Edit className="h-4 w-4" />
             </Button>
             <Button
-              variant="ghost"
               size="sm"
-              className="h-8 w-8 text-red-600"
-              onClick={() => handleDelete(user.id)}
+              variant="outline"
+              onClick={() => handleDelete(user)}
+              disabled={isDeleting}
+              title="Eliminar usuario"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
             >
               <Trash className="h-4 w-4" />
             </Button>
@@ -344,6 +374,19 @@ const UsersPage = () => {
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
         userId={selectedUserId}
+      />
+
+      {/* ✅ Diálogo de confirmación de eliminación */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Eliminar Usuario"
+        description={`¿Estás seguro de que deseas eliminar al usuario "${userToDelete?.name}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
       />
     </div>
   );

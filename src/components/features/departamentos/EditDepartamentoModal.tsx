@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useUpdateDepartamento } from '@/hooks/queries/useDepartamento';
+import { useNotification } from '@/hooks/useNotification';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ interface EditDepartamentoModalProps {
 
 export const EditDepartamentoModal = ({ open, onClose, departamento }: EditDepartamentoModalProps) => {
   const { mutate: updateDepartamento, isPending } = useUpdateDepartamento();
+  const notify = useNotification();
 
   const [formData, setFormData] = useState<UpdateDepartamento>({
     nombre: '',
@@ -47,7 +49,11 @@ export const EditDepartamentoModal = ({ open, onClose, departamento }: EditDepar
       { id: departamento.id, data: formData },
       {
         onSuccess: () => {
+          notify.success('Departamento Actualizado', 'El departamento se ha actualizado correctamente');
           onClose();
+        },
+        onError: (error) => {
+          notify.apiError(error);
         },
       }
     );

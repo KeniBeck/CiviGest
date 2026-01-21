@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useUpdateMulta } from '@/hooks/queries/useMultas';
 import { useDepartamentos } from '@/hooks/queries/useDepartamento';
+import { useNotification } from '@/hooks/useNotification';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,7 @@ interface EditMultaModalProps {
 
 export const EditMultaModal = ({ open, onClose, multa }: EditMultaModalProps) => {
   const { mutate: updateMulta, isPending } = useUpdateMulta();
+  const notify = useNotification();
   
   // Cargar departamentos activos
   const { data: departamentosData } = useDepartamentos({ 
@@ -67,7 +69,11 @@ export const EditMultaModal = ({ open, onClose, multa }: EditMultaModalProps) =>
       { id: multa.id, data: formData },
       {
         onSuccess: () => {
+          notify.success('Multa Actualizada', 'La multa se ha actualizado correctamente');
           onClose();
+        },
+        onError: (error) => {
+          notify.apiError(error);
         },
       }
     );

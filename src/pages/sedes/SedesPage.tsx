@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Edit, Trash, MapPin } from "lucide-react";
+import { Trash, MapPin } from "lucide-react";
 import { DataTable } from "@/components/common/DataTable";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { useSedes, useDeleteSede } from "@/hooks/queries/useSedes";
+import { useNotification } from "@/hooks/useNotification";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +12,7 @@ import type { Column } from "@/components/common/DataTable";
 import { CollapsibleFilters } from "@/components/common/CollapsibleFilters";
 
 const SedesPage = () => {
+  const notify = useNotification();
   // ✅ Estado de filtros
   const [filters, setFilters] = useState({
     page: 1,
@@ -17,6 +20,10 @@ const SedesPage = () => {
     search: "",
     isActive: undefined as boolean | undefined,
   });
+
+  // Estados para ConfirmDialog
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [sedeToDelete, setSedeToDelete] = useState<{ id: number; name: string } | null>(null);
 
   // ✅ Debounce para búsqueda
   const debouncedSearch = useDebounce(filters.search, 500);
@@ -29,12 +36,25 @@ const SedesPage = () => {
     ...(filters.isActive !== undefined && { isActive: filters.isActive }),
   });
 
-  const { mutate: deleteSede } = useDeleteSede();
+  const { mutate: deleteSede, isPending: isDeleting } = useDeleteSede();
 
-  const handleDelete = (id: number) => {
-    if (window.confirm("¿Estás seguro de eliminar esta sede?")) {
-      deleteSede(id);
-    }
+  const handleDelete = (sede: Sede) => {
+    setSedeToDelete({ id: sede.id, name: sede.name });
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (!sedeToDelete) return;
+
+    deleteSede(sedeToDelete.id, {
+      onSuccess: () => {
+        notify.success('Sede Eliminada', 'La sede se ha eliminado correctamente');
+        setSedeToDelete(null);
+      },
+      onError: (error) => {
+        notify.apiError(error);
+      },
+    });
   };
 
   // ✅ Columnas de la tabla
@@ -124,6 +144,22 @@ const SedesPage = () => {
     totalPages: 0,
   };
 
+  // ✅ Renderizar acciones
+  const renderActions = (sede: Sede) => (
+    <div className="flex gap-2">
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => handleDelete(sede)}
+        disabled={isDeleting}
+        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+        title="Eliminar"
+      >
+        <Trash className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -158,21 +194,20 @@ const SedesPage = () => {
         onPageSizeChange={(limit) =>
           setFilters((prev) => ({ ...prev, limit, page: 1 }))
         }
-        actions={(sede) => (
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" className="h-8 w-8">
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 text-red-600"
-              onClick={() => handleDelete(sede.id)}
-            >
-              <Trash className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
+        actions={renderActions}
+      />
+
+      {/* Diálogo de confirmación para eliminar */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Eliminar Sede"
+        description={`¿Estás seguro de que deseas eliminar la sede "${sedeToDelete?.name}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
       />
     </div>
   );

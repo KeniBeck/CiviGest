@@ -7,6 +7,7 @@ import {
 import { useNotification } from '@/hooks/useNotification';
 import { CreateTipoAgenteModal } from '@/components/features/tipo-agentes/CreateTipoAgenteModal';
 import { EditTipoAgenteModal } from '@/components/features/tipo-agentes/EditTipoAgenteModal';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,12 @@ export const TipoAgentePage = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTipoAgente, setSelectedTipoAgente] = useState<TipoAgente | null>(null);
+
+  // Estados para ConfirmDialog
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [toggleConfirmOpen, setToggleConfirmOpen] = useState(false);
+  const [tipoToDelete, setTipoToDelete] = useState<{ id: number; nombre: string } | null>(null);
+  const [tipoToToggle, setTipoToToggle] = useState<{ id: number; nombre: string; isActive: boolean } | null>(null);
 
   // ✅ Obtener tipos de agente con React Query
   const { data, isLoading, error } = useTipoAgentes({
@@ -45,23 +52,41 @@ export const TipoAgentePage = () => {
   };
 
   const handleDelete = (id: number, nombre: string) => {
-    if (window.confirm(`¿Estás seguro de eliminar el tipo de agente "${nombre}"?`)) {
-      deleteTipoAgente(id, {
-        onSuccess: () => {
-          notify.success('Tipo de Agente Eliminado', 'El tipo de agente se ha eliminado correctamente');
-        },
-        onError: (error) => {
-          notify.apiError(error);
-        },
-      });
-    }
+    setTipoToDelete({ id, nombre });
+    setDeleteConfirmOpen(true);
   };
 
-  const handleToggle = (id: number) => {
-    toggleTipoAgente(id, {
+  const confirmDelete = () => {
+    if (!tipoToDelete) return;
+
+    deleteTipoAgente(tipoToDelete.id, {
+      onSuccess: () => {
+        notify.success('Tipo de Agente Eliminado', 'El tipo de agente se ha eliminado correctamente');
+        setTipoToDelete(null);
+      },
+      onError: (error) => {
+        notify.apiError(error);
+      },
+    });
+  };
+
+  const handleToggle = (tipoAgente: TipoAgente) => {
+    setTipoToToggle({ 
+      id: tipoAgente.id, 
+      nombre: tipoAgente.tipo, 
+      isActive: tipoAgente.isActive 
+    });
+    setToggleConfirmOpen(true);
+  };
+
+  const confirmToggle = () => {
+    if (!tipoToToggle) return;
+
+    toggleTipoAgente(tipoToToggle.id, {
       onSuccess: (data) => {
         const estado = data.data.isActive ? 'activado' : 'desactivado';
         notify.success('Estado Actualizado', `El tipo de agente ha sido ${estado} correctamente`);
+        setTipoToToggle(null);
       },
       onError: (error) => {
         notify.apiError(error);
@@ -120,13 +145,14 @@ export const TipoAgentePage = () => {
             variant="outline"
             onClick={() => handleEdit(tipoAgente)}
             title="Editar"
+            className="hover:bg-blue-50 hover:text-blue-600"
           >
             <Edit className="h-4 w-4" />
           </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => handleToggle(tipoAgente.id)}
+            onClick={() => handleToggle(tipoAgente)}
             disabled={isToggling}
             className={
               tipoAgente.isActive
@@ -225,6 +251,32 @@ export const TipoAgentePage = () => {
         open={isEditModalOpen}
         onClose={closeEditModal}
         tipoAgente={selectedTipoAgente}
+      />
+
+      {/* Diálogo de confirmación para eliminar */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Eliminar Tipo de Agente"
+        description={`¿Estás seguro de que deseas eliminar el tipo de agente "${tipoToDelete?.nombre}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
+
+      {/* Diálogo de confirmación para toggle */}
+      <ConfirmDialog
+        open={toggleConfirmOpen}
+        onOpenChange={setToggleConfirmOpen}
+        title={tipoToToggle?.isActive ? "Desactivar Tipo de Agente" : "Activar Tipo de Agente"}
+        description={`¿Estás seguro de que deseas ${tipoToToggle?.isActive ? "desactivar" : "activar"} el tipo de agente "${tipoToToggle?.nombre}"?`}
+        confirmText={tipoToToggle?.isActive ? "Desactivar" : "Activar"}
+        cancelText="Cancelar"
+        variant={tipoToToggle?.isActive ? "warning" : "success"}
+        onConfirm={confirmToggle}
+        isLoading={isToggling}
       />
     </div>
   );

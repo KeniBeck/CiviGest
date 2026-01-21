@@ -1,20 +1,29 @@
 import { useState } from 'react';
 import { usePatrullas, useDeletePatrulla, useToggleActivePatrulla } from '@/hooks/queries/usePatrulla';
+import { useNotification } from '@/hooks/useNotification';
 import { CreatePatrullaModal } from '@/components/features/patrullas/CreatePatrullaModal';
 import { EditPatrullaModal } from '@/components/features/patrullas/EditPatrullaModal';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Power } from 'lucide-react';
 import type { Patrulla } from '@/types/patrulla.type';
 
 export const PatrullaPage = () => {
+  const notify = useNotification();
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [search, setSearch] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedPatrullaId, setSelectedPatrullaId] = useState<number | null>(null);
+
+  // Estados para ConfirmDialog
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [toggleConfirmOpen, setToggleConfirmOpen] = useState(false);
+  const [patrullaToDelete, setPatrullaToDelete] = useState<{ id: number; numero: string } | null>(null);
+  const [patrullaToToggle, setPatrullaToToggle] = useState<{ id: number; numero: string; isActive: boolean } | null>(null);
 
   // ✅ Obtener patrullas con React Query
   const { data, isLoading, error } = usePatrullas({
@@ -28,26 +37,45 @@ export const PatrullaPage = () => {
   const { mutate: toggleActive, isPending: isToggling } = useToggleActivePatrulla();
 
   // Handlers
-  const handleDelete = (id: number) => {
-    if (window.confirm('¿Estás seguro de eliminar esta patrulla?')) {
-      deletePatrulla(id, {
-        onSuccess: () => {
-          console.log('Patrulla eliminada exitosamente');
-        },
-        onError: (error) => {
-          console.error('Error al eliminar patrulla:', error);
-        },
-      });
-    }
+  const handleDelete = (patrulla: Patrulla) => {
+    setPatrullaToDelete({ id: patrulla.id, numero: patrulla.numPatrulla });
+    setDeleteConfirmOpen(true);
   };
 
-  const handleToggleActive = (id: number) => {
-    toggleActive(id, {
+  const confirmDelete = () => {
+    if (!patrullaToDelete) return;
+
+    deletePatrulla(patrullaToDelete.id, {
       onSuccess: () => {
-        console.log('Estado de la patrulla actualizado');
+        notify.success('Patrulla Eliminada', 'La patrulla se ha eliminado correctamente');
+        setPatrullaToDelete(null);
       },
       onError: (error) => {
-        console.error('Error al cambiar estado:', error);
+        notify.apiError(error);
+      },
+    });
+  };
+
+  const handleToggleActive = (patrulla: Patrulla) => {
+    setPatrullaToToggle({ 
+      id: patrulla.id, 
+      numero: patrulla.numPatrulla, 
+      isActive: patrulla.isActive 
+    });
+    setToggleConfirmOpen(true);
+  };
+
+  const confirmToggle = () => {
+    if (!patrullaToToggle) return;
+
+    toggleActive(patrullaToToggle.id, {
+      onSuccess: () => {
+        const estado = patrullaToToggle.isActive ? 'desactivada' : 'activada';
+        notify.success('Estado Actualizado', `La patrulla ha sido ${estado} correctamente`);
+        setPatrullaToToggle(null);
+      },
+      onError: (error) => {
+        notify.apiError(error);
       },
     });
   };
@@ -128,27 +156,32 @@ export const PatrullaPage = () => {
             size="sm"
             variant="outline"
             onClick={() => handleEdit(patrulla.id)}
+            className="hover:bg-blue-50 hover:text-blue-600"
+            title="Editar"
           >
             <Pencil className="h-4 w-4" />
           </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => handleToggleActive(patrulla.id)}
+            onClick={() => handleToggleActive(patrulla)}
             disabled={isToggling}
+            className={
+              patrulla.isActive
+                ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-50'
+                : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+            }
+            title={patrulla.isActive ? 'Desactivar' : 'Activar'}
           >
-            {patrulla.isActive ? (
-              <ToggleRight className="h-4 w-4" />
-            ) : (
-              <ToggleLeft className="h-4 w-4" />
-            )}
+            <Power className="h-4 w-4" />
           </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => handleDelete(patrulla.id)}
+            onClick={() => handleDelete(patrulla)}
             disabled={isDeleting}
             className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            title="Eliminar"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -229,6 +262,32 @@ export const PatrullaPage = () => {
           patrullaId={selectedPatrullaId}
         />
       )}
+
+      {/* Diálogo de confirmación para eliminar */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Eliminar Patrulla"
+        description={`¿Estás seguro de que deseas eliminar la patrulla "${patrullaToDelete?.numero}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
+
+      {/* Diálogo de confirmación para toggle */}
+      <ConfirmDialog
+        open={toggleConfirmOpen}
+        onOpenChange={setToggleConfirmOpen}
+        title={patrullaToToggle?.isActive ? "Desactivar Patrulla" : "Activar Patrulla"}
+        description={`¿Estás seguro de que deseas ${patrullaToToggle?.isActive ? "desactivar" : "activar"} la patrulla "${patrullaToToggle?.numero}"?`}
+        confirmText={patrullaToToggle?.isActive ? "Desactivar" : "Activar"}
+        cancelText="Cancelar"
+        variant={patrullaToToggle?.isActive ? "warning" : "success"}
+        onConfirm={confirmToggle}
+        isLoading={isToggling}
+      />
     </div>
   );
 };
