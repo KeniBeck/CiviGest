@@ -26,7 +26,6 @@ api.interceptors.request.use(
     );
 
     if (isPublicEndpoint) {
-      console.log('🔓 Endpoint público (sin token):', config.url);
       return config;
     }
 
@@ -40,7 +39,6 @@ api.interceptors.request.use(
 
         if (token && config.headers) {
           config.headers.Authorization = `Bearer ${token}`;
-          console.log('🔐 Token agregado al header:', config.url);
         } else {
           console.warn('⚠️ No hay token disponible para:', config.url);
         }

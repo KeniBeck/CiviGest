@@ -4,6 +4,8 @@ import {
   useAprobarPermiso,
   useRechazarPermiso,
 } from '@/hooks/queries/usePermiso';
+import { useNotification } from '@/hooks/useNotification';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { CreatePermisoModal } from '@/components/features/permisos/CreatePermisoModal';
 import { EditPermisoModal } from '@/components/features/permisos/EditPermisoModal';
 import { DetallePermisoModal } from '@/components/features/permisos/DetallePermisoModal';
@@ -11,10 +13,12 @@ import { QRPermisoModal } from '@/components/features/permisos/QRPermisoModal';
 import { DataTable } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Loader2, Plus, CheckCircle, XCircle, Eye, QrCode, Edit } from 'lucide-react';
 import type { Permiso } from '@/types/permiso.type';
 
 export const PermisoPage = () => {
+  const notify = useNotification();
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [search, setSearch] = useState('');
@@ -24,6 +28,14 @@ export const PermisoPage = () => {
   const [isDetalleModalOpen, setIsDetalleModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [selectedPermiso, setSelectedPermiso] = useState<Permiso | null>(null);
+  
+  // Estados para ConfirmDialog
+  const [aprobarConfirmOpen, setAprobarConfirmOpen] = useState(false);
+  const [rechazarConfirmOpen, setRechazarConfirmOpen] = useState(false);
+  const [permisoToApprove, setPermisoToApprove] = useState<{ id: number; folio: string } | null>(null);
+  const [permisoToReject, setPermisoToReject] = useState<{ id: number; folio: string } | null>(null);
+  const [observaciones, setObservaciones] = useState('');
+  const [motivoRechazo, setMotivoRechazo] = useState('');
 
   // ✅ Obtener permisos con React Query
   const { data, isLoading, error } = usePermisos({
@@ -38,40 +50,59 @@ export const PermisoPage = () => {
   const { mutate: rechazarPermiso, isPending: isRechazando } = useRechazarPermiso();
 
   // Handlers
-  const handleAprobar = (id: number) => {
-    if (window.confirm('¿Estás seguro de aprobar este permiso?')) {
-      const observaciones = prompt('Observaciones (opcional):');
-      aprobarPermiso(
-        { id, observaciones: observaciones || undefined },
-        {
-          onSuccess: () => {
-            console.log('Permiso aprobado exitosamente');
-          },
-          onError: (error) => {
-            console.error('Error al aprobar permiso:', error);
-          },
-        }
-      );
-    }
+  const handleAprobar = (permiso: Permiso) => {
+    setPermisoToApprove({ id: permiso.id, folio: permiso.folio });
+    setAprobarConfirmOpen(true);
   };
 
-  const handleRechazar = (id: number) => {
-    const motivoRechazo = prompt('Motivo de rechazo (requerido):');
-    if (motivoRechazo && motivoRechazo.trim()) {
-      rechazarPermiso(
-        { id, motivoRechazo },
-        {
-          onSuccess: () => {
-            console.log('Permiso rechazado exitosamente');
-          },
-          onError: (error) => {
-            console.error('Error al rechazar permiso:', error);
-          },
-        }
-      );
-    } else if (motivoRechazo !== null) {
-      alert('Debes proporcionar un motivo de rechazo');
+  const confirmAprobar = () => {
+    if (!permisoToApprove) return;
+    
+    aprobarPermiso(
+      { id: permisoToApprove.id, observaciones: observaciones || undefined },
+      {
+        onSuccess: () => {
+          notify.success(
+            'Permiso Aprobado',
+            `El permiso "${permisoToApprove.folio}" ha sido aprobado exitosamente`
+          );
+          setObservaciones('');
+          setPermisoToApprove(null);
+        },
+        onError: (error) => {
+          notify.apiError(error);
+        },
+      }
+    );
+  };
+
+  const handleRechazar = (permiso: Permiso) => {
+    setPermisoToReject({ id: permiso.id, folio: permiso.folio });
+    setRechazarConfirmOpen(true);
+  };
+
+  const confirmRechazar = () => {
+    if (!permisoToReject || !motivoRechazo.trim()) {
+      notify.warning('Campo Requerido', 'Debes proporcionar un motivo de rechazo');
+      return;
     }
+    
+    rechazarPermiso(
+      { id: permisoToReject.id, motivoRechazo },
+      {
+        onSuccess: () => {
+          notify.success(
+            'Permiso Rechazado',
+            `El permiso "${permisoToReject.folio}" ha sido rechazado`
+          );
+          setMotivoRechazo('');
+          setPermisoToReject(null);
+        },
+        onError: (error) => {
+          notify.apiError(error);
+        },
+      }
+    );
   };
 
   const handleCreate = () => {
@@ -205,7 +236,7 @@ export const PermisoPage = () => {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => handleAprobar(permiso.id)}
+                onClick={() => handleAprobar(permiso)}
                 disabled={isAprobando}
                 className="text-green-600 hover:text-green-700 hover:bg-green-50"
                 title="Aprobar"
@@ -215,7 +246,7 @@ export const PermisoPage = () => {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => handleRechazar(permiso.id)}
+                onClick={() => handleRechazar(permiso)}
                 disabled={isRechazando}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
                 title="Rechazar"
@@ -329,6 +360,63 @@ export const PermisoPage = () => {
         open={isQRModalOpen}
         onClose={closeQRModal}
         permiso={selectedPermiso}
+      />
+
+      {/* Diálogo de confirmación para aprobar */}
+      <ConfirmDialog
+        open={aprobarConfirmOpen}
+        onOpenChange={setAprobarConfirmOpen}
+        title="Aprobar Permiso"
+        description={
+          <div className="space-y-3">
+            <p>¿Estás seguro de que deseas aprobar el permiso con folio <strong>{permisoToApprove?.folio}</strong>?</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Observaciones (opcional)
+              </label>
+              <Input
+                value={observaciones}
+                onChange={(e) => setObservaciones(e.target.value)}
+                placeholder="Agregar observaciones..."
+                className="w-full"
+              />
+            </div>
+          </div>
+        }
+        confirmText="Aprobar"
+        cancelText="Cancelar"
+        variant="success"
+        onConfirm={confirmAprobar}
+        isLoading={isAprobando}
+      />
+
+      {/* Diálogo de confirmación para rechazar */}
+      <ConfirmDialog
+        open={rechazarConfirmOpen}
+        onOpenChange={setRechazarConfirmOpen}
+        title="Rechazar Permiso"
+        description={
+          <div className="space-y-3">
+            <p>¿Estás seguro de que deseas rechazar el permiso con folio <strong>{permisoToReject?.folio}</strong>?</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Motivo de rechazo <span className="text-red-500">*</span>
+              </label>
+              <Input
+                value={motivoRechazo}
+                onChange={(e) => setMotivoRechazo(e.target.value)}
+                placeholder="Debes proporcionar un motivo..."
+                className="w-full"
+                required
+              />
+            </div>
+          </div>
+        }
+        confirmText="Rechazar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={confirmRechazar}
+        isLoading={isRechazando}
       />
     </div>
   );

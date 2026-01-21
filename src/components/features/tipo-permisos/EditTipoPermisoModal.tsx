@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTipoPermiso, useUpdateTipoPermiso } from '@/hooks/queries/useTipoPermiso';
+import { useNotification } from '@/hooks/useNotification';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ interface EditTipoPermisoModalProps {
 export const EditTipoPermisoModal = ({ open, onClose, tipoPermisoId }: EditTipoPermisoModalProps) => {
   const { data: tipoPermiso, isLoading: isLoadingTipoPermiso } = useTipoPermiso(tipoPermisoId);
   const { mutate: updateTipoPermiso, isPending } = useUpdateTipoPermiso();
+  const notify = useNotification();
 
   const [formData, setFormData] = useState<UpdateTipoPermiso>({
     nombre: '',
@@ -63,7 +65,11 @@ export const EditTipoPermisoModal = ({ open, onClose, tipoPermisoId }: EditTipoP
       { id: tipoPermisoId, data: formData },
       {
         onSuccess: () => {
+          notify.success('Tipo de Permiso Actualizado', 'El tipo de permiso se ha actualizado correctamente');
           onClose();
+        },
+        onError: (error) => {
+          notify.apiError(error);
         },
       }
     );

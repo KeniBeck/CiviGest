@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Edit, Trash, MapPin } from "lucide-react";
+import { Trash, MapPin } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { DataTable } from "@/components/common/DataTable";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { useSubsedes, useDeleteSubsede } from "@/hooks/queries/useSubsedes";
+import { useNotification } from "@/hooks/useNotification";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +15,7 @@ import type { Column } from "@/components/common/DataTable";
 import { CollapsibleFilters } from "@/components/common/CollapsibleFilters";
 
 const SubsedesPage = () => {
+  const notify = useNotification();
   const currentUser = useAuthStore((state) => state.user);
 
   // ✅ Determinar si es SUPER_ADMIN
@@ -41,12 +44,29 @@ const SubsedesPage = () => {
     ...(filters.sedeId !== undefined && { sedeId: filters.sedeId }),
   });
 
-  const { mutate: deleteSubsede } = useDeleteSubsede();
+  const { mutate: deleteSubsede, isPending: isDeleting } = useDeleteSubsede();
 
-  const handleDelete = (id: number) => {
-    if (window.confirm("¿Estás seguro de eliminar esta subsede?")) {
-      deleteSubsede(id);
-    }
+  // Estados para ConfirmDialog
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [subsedeToDelete, setSubsedeToDelete] = useState<{ id: number; name: string } | null>(null);
+
+  const handleDelete = (subsede: Subsede) => {
+    setSubsedeToDelete({ id: subsede.id, name: subsede.name });
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (!subsedeToDelete) return;
+
+    deleteSubsede(subsedeToDelete.id, {
+      onSuccess: () => {
+        notify.success('Subsede Eliminada', 'La subsede se ha eliminado correctamente');
+        setSubsedeToDelete(null);
+      },
+      onError: (error) => {
+        notify.apiError(error);
+      },
+    });
   };
 
   // ✅ Columnas de la tabla
@@ -176,6 +196,22 @@ const SubsedesPage = () => {
     totalPages: 0,
   };
 
+  // ✅ Renderizar acciones
+  const renderActions = (subsede: Subsede) => (
+    <div className="flex gap-2">
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => handleDelete(subsede)}
+        disabled={isDeleting}
+        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+        title="Eliminar"
+      >
+        <Trash className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -214,21 +250,20 @@ const SubsedesPage = () => {
         onPageSizeChange={(limit) =>
           setFilters((prev) => ({ ...prev, limit, page: 1 }))
         }
-        actions={(subsede) => (
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" className="h-8 w-8">
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 text-red-600"
-              onClick={() => handleDelete(subsede.id)}
-            >
-              <Trash className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
+        actions={renderActions}
+      />
+
+      {/* Diálogo de confirmación para eliminar */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Eliminar Subsede"
+        description={`¿Estás seguro de que deseas eliminar la subsede "${subsedeToDelete?.name}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
       />
     </div>
   );

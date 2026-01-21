@@ -17,6 +17,7 @@ import {
   FileCheck,
   Shield,
   ShieldCheck,
+  Key,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -139,6 +140,12 @@ export const navigationMenu: MenuItem[] = [
         icon: ShieldCheck,
         path: '/roles',
         roles: ['SUPER_ADMIN','MUNICIPAL','ESTATAL'],
+      },
+      {
+        label: 'Permisos',
+        icon: Key,
+        path: '/permissions',
+        roles: ['SUPER_ADMIN'],
       },
     ],
   },

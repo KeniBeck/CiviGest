@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { usePatrulla, useUpdatePatrulla } from '@/hooks/queries/usePatrulla';
+import { useNotification } from '@/hooks/useNotification';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ interface EditPatrullaModalProps {
 export const EditPatrullaModal = ({ open, onClose, patrullaId }: EditPatrullaModalProps) => {
   const { data: patrulla, isLoading: isLoadingPatrulla } = usePatrulla(patrullaId);
   const { mutate: updatePatrulla, isPending } = useUpdatePatrulla();
+  const notify = useNotification();
 
   const [formData, setFormData] = useState<UpdatePatrulla>({
     marca: '',
@@ -51,7 +53,11 @@ export const EditPatrullaModal = ({ open, onClose, patrullaId }: EditPatrullaMod
       { id: patrullaId, data: formData },
       {
         onSuccess: () => {
+          notify.success('Patrulla Actualizada', 'La patrulla se ha actualizado correctamente');
           onClose();
+        },
+        onError: (error) => {
+          notify.apiError(error);
         },
       }
     );

@@ -23,6 +23,7 @@ import { useUser, useUpdateUser } from '@/hooks/queries/useUsers';
 import { useRoles } from '@/hooks/queries/useRoles';
 import { useSubsedesForAccess } from '@/hooks/queries/useSubsedes';
 import { useUserLevel } from '@/hooks/useUserLevel';
+import { useNotification } from '@/hooks/useNotification';
 import { sedeService } from '@/services/sede.service';
 import { subsedeService } from '@/services/subsede.service';
 import type { UpdateUserDto } from '@/types/user.types';
@@ -49,6 +50,7 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
   const { mutate: updateUser, isPending } = useUpdateUser();
   const { data: userData, isLoading: isLoadingUser } = useUser(userId || 0);
   const { data: rolesData } = useRoles({ isActive: true });
+  const notify = useNotification();
   
   const [selectedSedeId, setSelectedSedeId] = useState<number | undefined>();
   
@@ -179,13 +181,11 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
       { id: userId, data: dataToSubmit as UpdateUserDto },
       {
         onSuccess: () => {
+          notify.success('Usuario Actualizado', 'El usuario se ha actualizado correctamente');
           onOpenChange(false);
         },
         onError: (error: any) => {
-          console.error('Error al actualizar usuario:', error);
-          setErrors({
-            submit: error?.response?.data?.message || 'Error al actualizar el usuario',
-          });
+          notify.apiError(error);
         },
       }
     );
