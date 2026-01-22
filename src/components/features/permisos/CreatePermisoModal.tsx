@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useCreatePermiso } from '@/hooks/queries/usePermiso';
+import { useCreatePermiso, useAprobarPermiso } from '@/hooks/queries/usePermiso';
 import { useTipoPermisos } from '@/hooks/queries/useTipoPermiso';
 import { useNotification } from '@/hooks/useNotification';
 import {
@@ -18,11 +18,13 @@ import type { CreatePermiso } from '@/types/permiso.type';
 interface CreatePermisoModalProps {
   open: boolean;
   onClose: () => void;
+  onPermisoCreado?: (permisoId: number, abrirPago: boolean) => void;
 }
 
-export const CreatePermisoModal = ({ open, onClose }: CreatePermisoModalProps) => {
+export const CreatePermisoModal = ({ open, onClose, onPermisoCreado }: CreatePermisoModalProps) => {
   const notify = useNotification();
   const { mutate: createPermiso, isPending } = useCreatePermiso();
+  const { mutate: aprobarPermiso, isPending: isAprobando } = useAprobarPermiso();
   
   // Cargar tipos de permiso
   const { data: tiposPermisoData } = useTipoPermisos({ page: 1, limit: 100, isActive: true });
@@ -41,6 +43,8 @@ export const CreatePermisoModal = ({ open, onClose }: CreatePermisoModalProps) =
   });
 
   const [camposAdicionales, setCamposAdicionales] = useState<Record<string, any>>({});
+  const [aprobarInmediatamente, setAprobarInmediatamente] = useState(true); // ✅ Por defecto TRUE
+  const [registrarPago, setRegistrarPago] = useState(true); // ✅ Por defecto TRUE
 
   // Obtener el tipo de permiso seleccionado
   const tipoPermisoSeleccionado = tiposPermisoData?.items.find(
@@ -66,27 +70,59 @@ export const CreatePermisoModal = ({ open, onClose }: CreatePermisoModalProps) =
     };
 
     createPermiso(dataToSubmit, {
-      onSuccess: () => {
+      onSuccess: (permisoCreado) => {
         notify.success('Permiso Creado', 'El permiso se ha creado correctamente');
-        onClose();
-        setFormData({
-          tipoPermisoId: 0,
-          nombreCiudadano: '',
-          documentoCiudadano: '',
-          domicilioCiudadano: '',
-          telefonoCiudadano: '',
-          emailCiudadano: '',
-          fechaEmision: new Date().toISOString().split('T')[0],
-          vigenciaDias: 30,
-          camposAdicionales: {},
-          descripcion: '',
-        });
-        setCamposAdicionales({});
+        
+        // Si se marcó "Aprobar inmediatamente", aprobar el permiso
+        if (aprobarInmediatamente && permisoCreado) {
+          aprobarPermiso(
+            { id: permisoCreado.id, observaciones: 'Aprobado automáticamente al crear' },
+            {
+              onSuccess: () => {
+                notify.success('Permiso Aprobado', 'El permiso ha sido aprobado automáticamente');
+                
+                // Si también se marcó "Registrar pago", abrir modal de pago
+                if (registrarPago && onPermisoCreado) {
+                  onPermisoCreado(permisoCreado.id, true);
+                }
+                
+                onClose();
+                resetForm();
+              },
+              onError: (error) => {
+                notify.apiError(error);
+                onClose();
+                resetForm();
+              },
+            }
+          );
+        } else {
+          onClose();
+          resetForm();
+        }
       },
       onError: (error) => {
         notify.apiError(error);
       },
     });
+  };
+
+  const resetForm = () => {
+    setFormData({
+      tipoPermisoId: 0,
+      nombreCiudadano: '',
+      documentoCiudadano: '',
+      domicilioCiudadano: '',
+      telefonoCiudadano: '',
+      emailCiudadano: '',
+      fechaEmision: new Date().toISOString().split('T')[0],
+      vigenciaDias: 30,
+      camposAdicionales: {},
+      descripcion: '',
+    });
+    setCamposAdicionales({});
+    setAprobarInmediatamente(false);
+    setRegistrarPago(false);
   };
 
   const handleChange = (field: keyof CreatePermiso, value: string | number) => {
@@ -270,6 +306,68 @@ export const CreatePermisoModal = ({ open, onClose }: CreatePermisoModalProps) =
                   </div>
                 )}
             </div>
+
+            {/* ✅ Opciones de Aprobación y Pago */}
+            <div className="space-y-3 pt-4 border-t">
+              <h3 className="text-lg font-semibold text-gray-700">Opciones Adicionales</h3>
+              
+              {/* Aprobar Inmediatamente */}
+              <div className="flex items-start gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="aprobarInmediatamente"
+                  checked={aprobarInmediatamente}
+                  onChange={(e) => {
+                    setAprobarInmediatamente(e.target.checked);
+                    // Si se desmarca aprobar, también desmarcar pago
+                    if (!e.target.checked) {
+                      setRegistrarPago(false);
+                    }
+                  }}
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded mt-1"
+                />
+                <label htmlFor="aprobarInmediatamente" className="cursor-pointer flex-1">
+                  <p className="text-sm font-medium text-green-900">
+                    ✅ Aprobar permiso inmediatamente
+                  </p>
+                  <p className="text-xs text-green-700 mt-1">
+                    El permiso será aprobado automáticamente después de crearlo
+                  </p>
+                </label>
+              </div>
+
+              {/* Registrar Pago (solo si aprobar está marcado) */}
+              <div 
+                className={`flex items-start gap-3 p-3 rounded-lg border ${
+                  aprobarInmediatamente 
+                    ? 'bg-blue-50 border-blue-200' 
+                    : 'bg-gray-100 border-gray-200 opacity-50'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  id="registrarPago"
+                  checked={registrarPago}
+                  onChange={(e) => setRegistrarPago(e.target.checked)}
+                  disabled={!aprobarInmediatamente}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1 disabled:cursor-not-allowed"
+                />
+                <label 
+                  htmlFor="registrarPago" 
+                  className={`flex-1 ${aprobarInmediatamente ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                >
+                  <p className={`text-sm font-medium ${aprobarInmediatamente ? 'text-blue-900' : 'text-gray-600'}`}>
+                    💵 Registrar pago inmediatamente
+                  </p>
+                  <p className={`text-xs mt-1 ${aprobarInmediatamente ? 'text-blue-700' : 'text-gray-500'}`}>
+                    {aprobarInmediatamente 
+                      ? 'Se abrirá el formulario de pago después de aprobar el permiso'
+                      : 'Debes marcar "Aprobar inmediatamente" para habilitar esta opción'
+                    }
+                  </p>
+                </label>
+              </div>
+            </div>
           </div>
 
           <DialogFooter className="px-6 py-4 border-t bg-gray-50">
@@ -281,14 +379,19 @@ export const CreatePermisoModal = ({ open, onClose }: CreatePermisoModalProps) =
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isPending || !formData.tipoPermisoId}>
-              {isPending ? (
+            <Button type="submit" disabled={isPending || isAprobando || !formData.tipoPermisoId}>
+              {(isPending || isAprobando) ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creando...
+                  {isPending ? 'Creando...' : 'Aprobando...'}
                 </>
               ) : (
-                'Crear Permiso'
+                <>
+                  {aprobarInmediatamente 
+                    ? (registrarPago ? '✅💵 Crear, Aprobar y Pagar' : '✅ Crear y Aprobar')
+                    : 'Crear Permiso'
+                  }
+                </>
               )}
             </Button>
           </DialogFooter>

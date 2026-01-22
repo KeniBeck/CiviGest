@@ -104,7 +104,7 @@ export const EditPermisoModal = ({ open, onClose, permiso }: EditPermisoModalPro
   };
 
   // Verificar si el permiso puede ser editado
-  const canEdit = permiso?.estatus === 'PENDIENTE';
+  const canEdit = permiso?.estatus === 'SOLICITADO' || permiso?.estatus === 'EN_REVISION';
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -117,7 +117,9 @@ export const EditPermisoModal = ({ open, onClose, permiso }: EditPermisoModalPro
                 variant={
                   permiso?.estatus === 'APROBADO'
                     ? 'default'
-                    : permiso?.estatus === 'PENDIENTE'
+                    : permiso?.estatus === 'SOLICITADO'
+                    ? 'secondary'
+                    : permiso?.estatus === 'EN_REVISION'
                     ? 'secondary'
                     : permiso?.estatus === 'RECHAZADO'
                     ? 'destructive'
@@ -139,7 +141,7 @@ export const EditPermisoModal = ({ open, onClose, permiso }: EditPermisoModalPro
                 Permiso no editable
               </p>
               <p className="text-sm text-yellow-700">
-                Solo los permisos con estatus "PENDIENTE" pueden ser editados.
+                Solo los permisos con estatus "SOLICITADO" o "EN_REVISION" pueden ser editados.
               </p>
             </div>
           </div>

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   usePermisos,
+  usePermiso,
   useAprobarPermiso,
   useRechazarPermiso,
 } from '@/hooks/queries/usePermiso';
@@ -10,24 +11,30 @@ import { CreatePermisoModal } from '@/components/features/permisos/CreatePermiso
 import { EditPermisoModal } from '@/components/features/permisos/EditPermisoModal';
 import { DetallePermisoModal } from '@/components/features/permisos/DetallePermisoModal';
 import { QRPermisoModal } from '@/components/features/permisos/QRPermisoModal';
+import { PagoPermisoModal } from '@/components/features/permisos/PagoPermisoModal';
+import { ComprobanteModal } from '@/components/features/permisos/ComprobanteModal';
 import { DataTable } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, CheckCircle, XCircle, Eye, QrCode, Edit } from 'lucide-react';
+import { Loader2, Plus, CheckCircle, XCircle, Eye, QrCode, Edit, DollarSign } from 'lucide-react';
 import type { Permiso } from '@/types/permiso.type';
+import type { PagoPermiso } from '@/types/pago-permisos.type';
 
 export const PermisoPage = () => {
   const notify = useNotification();
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [search, setSearch] = useState('');
-  const [estatusFilter, setEstatusFilter] = useState<'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'VENCIDO' | ''>('');
+  const [estatusFilter, setEstatusFilter] = useState<'SOLICITADO' | 'EN_REVISION' | 'APROBADO' | 'RECHAZADO' | 'VENCIDO' | 'CANCELADO' | ''>('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDetalleModalOpen, setIsDetalleModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
+  const [isComprobanteModalOpen, setIsComprobanteModalOpen] = useState(false);
   const [selectedPermiso, setSelectedPermiso] = useState<Permiso | null>(null);
+  const [selectedPago, setSelectedPago] = useState<PagoPermiso | null>(null);
   
   // Estados para ConfirmDialog
   const [aprobarConfirmOpen, setAprobarConfirmOpen] = useState(false);
@@ -36,6 +43,10 @@ export const PermisoPage = () => {
   const [permisoToReject, setPermisoToReject] = useState<{ id: number; folio: string } | null>(null);
   const [observaciones, setObservaciones] = useState('');
   const [motivoRechazo, setMotivoRechazo] = useState('');
+  const [pagarAhora, setPagarAhora] = useState(false);
+
+  // Estado para cargar permiso después de crear
+  const [permisoIdParaPago, setPermisoIdParaPago] = useState<number | null>(null);
 
   // ✅ Obtener permisos con React Query
   const { data, isLoading, error } = usePermisos({
@@ -44,6 +55,11 @@ export const PermisoPage = () => {
     search: search || undefined,
     estatus: estatusFilter || undefined,
   });
+
+  // Hook para obtener el permiso completo cuando se necesite abrir el modal de pago
+  const { data: permisoParaPago, isLoading: isLoadingPermisoParaPago } = usePermiso(
+    permisoIdParaPago ?? 0
+  );
 
   // ✅ Mutations
   const { mutate: aprobarPermiso, isPending: isAprobando } = useAprobarPermiso();
@@ -61,12 +77,20 @@ export const PermisoPage = () => {
     aprobarPermiso(
       { id: permisoToApprove.id, observaciones: observaciones || undefined },
       {
-        onSuccess: () => {
+        onSuccess: (response) => {
           notify.success(
             'Permiso Aprobado',
             `El permiso "${permisoToApprove.folio}" ha sido aprobado exitosamente`
           );
+          
+          // Si el usuario eligió "Pagar Ahora", abrir el modal de pago
+          if (pagarAhora && response) {
+            setSelectedPermiso(response);
+            setIsPagoModalOpen(true);
+          }
+          
           setObservaciones('');
+          setPagarAhora(false);
           setPermisoToApprove(null);
         },
         onError: (error) => {
@@ -109,6 +133,22 @@ export const PermisoPage = () => {
     setIsCreateModalOpen(true);
   };
 
+  const handlePermisoCreado = (permisoId: number, abrirPago: boolean) => {
+    if (abrirPago) {
+      // ✅ Establecer el ID del permiso para que usePermiso lo obtenga
+      setPermisoIdParaPago(permisoId);
+    }
+  };
+
+  // ✅ Efecto para abrir modal de pago cuando se cargue el permiso
+  useEffect(() => {
+    if (permisoParaPago && !isLoadingPermisoParaPago) {
+      setSelectedPermiso(permisoParaPago);
+      setIsPagoModalOpen(true);
+      setPermisoIdParaPago(null); // Reset
+    }
+  }, [permisoParaPago, isLoadingPermisoParaPago]);
+
   const handleEdit = (permiso: Permiso) => {
     setSelectedPermiso(permiso);
     setIsEditModalOpen(true);
@@ -139,15 +179,42 @@ export const PermisoPage = () => {
     setSelectedPermiso(null);
   };
 
+  const handleOpenPago = (permiso: Permiso) => {
+    setSelectedPermiso(permiso);
+    setIsPagoModalOpen(true);
+  };
+
+  const closePagoModal = () => {
+    setIsPagoModalOpen(false);
+    setSelectedPermiso(null);
+  };
+
+  const closeComprobanteModal = () => {
+    setIsComprobanteModalOpen(false);
+    setSelectedPago(null);
+  };
+
   // Helper para obtener color del badge según estatus
   const getEstatusBadge = (estatus: string) => {
     const statusMap = {
-      PENDIENTE: { variant: 'secondary' as const, label: 'Pendiente' },
-      APROBADO: { variant: 'default' as const, label: 'Aprobado' },
-      RECHAZADO: { variant: 'destructive' as const, label: 'Rechazado' },
-      VENCIDO: { variant: 'outline' as const, label: 'Vencido' },
+      SOLICITADO: { variant: 'secondary' as const, label: 'Solicitado', color: 'bg-yellow-100 text-yellow-800' },
+      EN_REVISION: { variant: 'secondary' as const, label: 'En Revisión', color: 'bg-blue-100 text-blue-800' },
+      APROBADO: { variant: 'default' as const, label: 'Aprobado', color: 'bg-green-100 text-green-800' },
+      RECHAZADO: { variant: 'destructive' as const, label: 'Rechazado', color: 'bg-red-100 text-red-800' },
+      VENCIDO: { variant: 'outline' as const, label: 'Vencido', color: 'bg-gray-100 text-gray-800' },
+      CANCELADO: { variant: 'outline' as const, label: 'Cancelado', color: 'bg-orange-100 text-orange-800' },
     };
-    return statusMap[estatus as keyof typeof statusMap] || { variant: 'secondary' as const, label: estatus };
+    return statusMap[estatus as keyof typeof statusMap] || { variant: 'secondary' as const, label: estatus, color: 'bg-gray-100 text-gray-800' };
+  };
+
+  // ✅ Helper para verificar si el permiso tiene pago PAGADO
+  const tienePagoPagado = (permiso: Permiso): boolean => {
+    return permiso.pagos?.some(pago => pago.estatus === 'PAGADO') ?? false;
+  };
+
+  // ✅ Helper para obtener el pago PAGADO
+  const getPagoPagado = (permiso: Permiso) => {
+    return permiso.pagos?.find(pago => pago.estatus === 'PAGADO');
   };
 
   // Columnas de la tabla
@@ -202,7 +269,18 @@ export const PermisoPage = () => {
       header: 'Estatus',
       accessor: (permiso: Permiso) => {
         const { variant, label } = getEstatusBadge(permiso.estatus);
-        return <Badge variant={variant}>{label}</Badge>;
+        const estaPagado = tienePagoPagado(permiso);
+        
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge variant={variant}>{label}</Badge>
+            {estaPagado && (
+              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">
+                💰 PAGADO
+              </Badge>
+            )}
+          </div>
+        );
       },
     },
     {
@@ -212,17 +290,20 @@ export const PermisoPage = () => {
     {
       header: 'Acciones',
       accessor: (permiso: Permiso) => (
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
+          {/* Botón Ver Detalles - Siempre visible */}
           <Button 
             size="sm" 
             variant="outline" 
             onClick={() => handleViewDetalle(permiso)}
             title="Ver detalles"
+            className="hover:bg-blue-50 hover:text-blue-600"
           >
             <Eye className="h-4 w-4" />
           </Button>
           
-          {permiso.estatus === 'PENDIENTE' && (
+          {/* Acciones para permisos SOLICITADOS o EN_REVISION */}
+          {(permiso.estatus === 'SOLICITADO' || permiso.estatus === 'EN_REVISION') && (
             <>
               <Button
                 size="sm"
@@ -256,16 +337,86 @@ export const PermisoPage = () => {
             </>
           )}
 
+          {/* Acciones para permisos APROBADOS */}
           {permiso.estatus === 'APROBADO' && (
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={() => handleViewQR(permiso)}
-              className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-              title="Ver QR"
-            >
-              <QrCode className="h-4 w-4" />
-            </Button>
+            <>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => handleViewQR(permiso)}
+                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                title="Ver QR"
+              >
+                <QrCode className="h-4 w-4" />
+              </Button>
+              
+              {/* ✅ Verificar si ya tiene pago PAGADO */}
+              {tienePagoPagado(permiso) ? (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => {
+                    const pago = getPagoPagado(permiso);
+                    if (pago) {
+                      // Construir el objeto PagoPermiso completo desde el permiso
+                      const pagoCompleto = {
+                        ...pago,
+                        permisoId: permiso.id,
+                        permiso: permiso,
+                        usuarioId: null,
+                        sedeId: permiso.sedeId,
+                        subsedeId: permiso.subsedeId,
+                        costoBase: permiso.costo,
+                        descuento: "0",
+                        isActive: true,
+                        deletedAt: null,
+                        createdAt: pago.fechaPago,
+                        updatedAt: pago.fechaPago,
+                        createdBy: null
+                      };
+                      setSelectedPago(pagoCompleto as any);
+                      setIsComprobanteModalOpen(true);
+                    }
+                  }}
+                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  title="Ver Comprobante"
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  <span className="text-xs">Comprobante</span>
+                </Button>
+              ) : (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => handleOpenPago(permiso)}
+                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                  title="Registrar Pago"
+                >
+                  <DollarSign className="h-4 w-4" />
+                </Button>
+              )}
+            </>
+          )}
+
+          {/* Acciones para permisos RECHAZADOS - Solo ver detalles */}
+          {permiso.estatus === 'RECHAZADO' && (
+            <span className="text-xs text-red-600 px-2 py-1">
+              Sin acciones disponibles
+            </span>
+          )}
+
+          {/* Acciones para permisos VENCIDOS - Solo ver detalles */}
+          {permiso.estatus === 'VENCIDO' && (
+            <span className="text-xs text-gray-600 px-2 py-1">
+              Permiso vencido
+            </span>
+          )}
+
+          {/* Acciones para permisos CANCELADOS - Solo ver detalles */}
+          {permiso.estatus === 'CANCELADO' && (
+            <span className="text-xs text-orange-600 px-2 py-1">
+              Permiso cancelado
+            </span>
           )}
         </div>
       ),
@@ -314,10 +465,12 @@ export const PermisoPage = () => {
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Todos los estatus</option>
-            <option value="PENDIENTE">Pendiente</option>
+            <option value="SOLICITADO">Solicitado</option>
+            <option value="EN_REVISION">En Revisión</option>
             <option value="APROBADO">Aprobado</option>
             <option value="RECHAZADO">Rechazado</option>
             <option value="VENCIDO">Vencido</option>
+            <option value="CANCELADO">Cancelado</option>
           </select>
         </div>
       </div>
@@ -345,6 +498,7 @@ export const PermisoPage = () => {
       <CreatePermisoModal
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+        onPermisoCreado={handlePermisoCreado}
       />
       <EditPermisoModal
         open={isEditModalOpen}
@@ -380,6 +534,20 @@ export const PermisoPage = () => {
                 placeholder="Agregar observaciones..."
                 className="w-full"
               />
+            </div>
+            
+            {/* Checkbox para "Pagar Ahora" */}
+            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <input
+                type="checkbox"
+                id="pagarAhora"
+                checked={pagarAhora}
+                onChange={(e) => setPagarAhora(e.target.checked)}
+                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+              />
+              <label htmlFor="pagarAhora" className="text-sm font-medium text-green-900 cursor-pointer">
+                💵 Registrar pago inmediatamente después de aprobar
+              </label>
             </div>
           </div>
         }
@@ -417,6 +585,23 @@ export const PermisoPage = () => {
         variant="danger"
         onConfirm={confirmRechazar}
         isLoading={isRechazando}
+      />
+
+      {/* Modal de Pago */}
+      <PagoPermisoModal
+        open={isPagoModalOpen}
+        onOpenChange={closePagoModal}
+        permiso={selectedPermiso}
+        onSuccess={() => {
+          // Refrescar datos si es necesario
+        }}
+      />
+
+      {/* Modal de Comprobante */}
+      <ComprobanteModal
+        open={isComprobanteModalOpen}
+        onOpenChange={closeComprobanteModal}
+        pago={selectedPago}
       />
     </div>
   );

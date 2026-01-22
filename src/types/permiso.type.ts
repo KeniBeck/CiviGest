@@ -18,7 +18,7 @@ export interface Permiso {
   fechaVencimiento: string;
   vigenciaDias: number;
   qr: string;
-  estatus: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'VENCIDO';
+  estatus: 'SOLICITADO' | 'EN_REVISION' | 'APROBADO' | 'RECHAZADO' | 'VENCIDO' | 'CANCELADO';
   documentosAdjuntos: Record<string, any>;
   camposAdicionales: Record<string, any>;
   fechaSolicitud: string;
@@ -67,6 +67,38 @@ export interface Permiso {
     updatedAt: string;
     createdBy: number;
   };
+  // ✅ Array de pagos asociados al permiso
+  pagos?: Array<{
+    id: number;
+    metodoPago: string;
+    total: string;
+    fechaPago: string;
+    estatus: 'PENDIENTE' | 'PAGADO' | 'CANCELADO' | 'REEMBOLSADO';
+    referenciaPago: string | null;
+    observaciones: string | null;
+    costoBase: string;
+    descuentoPct: string;
+    descuentoMonto: string;
+    qrComprobante: string;
+    nombreCiudadano: string;
+    documentoCiudadano: string;
+    sede: {
+      id: number;
+      name: string;
+    };
+    subsede: {
+      id: number;
+      name: string;
+    },
+    usuarioCobro: {
+      id: number;
+      firstName: string;
+      lastName: string;
+      username: string;
+    },
+    usuarioAutorizo: [] | null
+
+  }>;
 }
 
 export interface CreatePermiso {
@@ -95,7 +127,7 @@ export interface UpdatePermiso {
   camposAdicionales?: Record<string, any>;
   documentosAdjuntos?: Record<string, any>;
   descripcion?: string;
-  estatus?: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'VENCIDO';
+  estatus?: 'SOLICITADO' | 'EN_REVISION' | 'APROBADO' | 'RECHAZADO' | 'VENCIDO' | 'CANCELADO';
   observaciones?: string;
   motivoRechazo?: string;
 }
@@ -105,6 +137,6 @@ export interface GetPermisosParams {
   limit?: number;
   search?: string;
   isActive?: boolean;
-  estatus?: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'VENCIDO';
+  estatus?: 'SOLICITADO' | 'EN_REVISION' | 'APROBADO' | 'RECHAZADO' | 'VENCIDO' | 'CANCELADO';
   tipoPermisoId?: number;
 }
