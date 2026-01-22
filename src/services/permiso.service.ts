@@ -89,14 +89,6 @@ class PermisoService {
     });
     return response;
   }
-
-  /**
-   * Generar QR del permiso
-   */
-  async generarQR(id: number) {
-    const response = await api.post<{ qr: string }>(`${this.baseUrl}/${id}/generar-qr`);
-    return response;
-  }
 }
 
 export const permisoService = new PermisoService();

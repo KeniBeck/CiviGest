@@ -164,20 +164,3 @@ export const useRechazarPermiso = () => {
     },
   });
 };
-
-/**
- * Hook para generar QR de un permiso
- */
-export const useGenerarQRPermiso = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (id: number) => {
-      const response = await permisoService.generarQR(id);
-      return response.data;
-    },
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: permisoKeys.detail(id) });
-    },
-  });
-};
