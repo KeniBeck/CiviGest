@@ -21,9 +21,13 @@ api.interceptors.request.use(
       '/themes/', // Todos los endpoints de temas
     ];
 
+    // Verificar si es un endpoint de servir imágenes (GET /imagenes/:type/:filename)
+    const isImageServeEndpoint = config.method === 'get' && 
+      config.url?.match(/^\/imagenes\/[^/]+\/[^/]+$/);
+
     const isPublicEndpoint = publicEndpoints.some((endpoint) =>
       config.url?.includes(endpoint)
-    );
+    ) || isImageServeEndpoint;
 
     if (isPublicEndpoint) {
       return config;

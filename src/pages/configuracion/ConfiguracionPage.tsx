@@ -7,8 +7,11 @@ import {
   useUpdateConfiguracion,
 } from '@/hooks/queries/useConfiguracion';
 import { useTheme } from '@/hooks/queries/useTheme';
+import { useUploadImage, useDeleteImage } from '@/hooks/queries/useImagenes';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
+import { LogoUploader } from '@/components/common/LogoUploader';
 import { themeService } from '@/services/theme.service';
+import { imagenesService } from '@/services/imagenes.service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +23,7 @@ import type { Theme } from '@/types/theme.types';
 export const ConfiguracionPage = () => {
   const { user } = useAuthStore();
   const subsedeId = user?.subsedeId || 0;
+  const sedeId = user?.sedeId || 0;
   const { setTheme, updateConfiguracion: updateConfiguracionStore } = useThemeStore();
 
   // ✅ Obtener configuración existente
@@ -28,8 +32,11 @@ export const ConfiguracionPage = () => {
   // ✅ Mutations
   const { mutate: createConfiguracion, isPending: isCreating } = useCreateConfiguracion();
   const { mutate: updateConfiguracion, isPending: isUpdating } = useUpdateConfiguracion();
+  const { mutateAsync: uploadImage } = useUploadImage();
+  const { mutate: deleteImage } = useDeleteImage();
 
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState<CreateConfiguracionDto>({
     nombreCliente: '',
@@ -95,7 +102,78 @@ export const ConfiguracionPage = () => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // ✅ Manejador para logo (actualización automática o archivo pendiente)
+  const handleLogoUpload = (filename: string, file?: File) => {
+    // Actualizar el formData con el nuevo filename
+    handleChange('logo', filename);
+    
+    // Si ya existe configuración, actualizar automáticamente
+    if (hasConfiguration && configuracion) {
+      const updateData: UpdateConfiguracionDto = {
+        ...formData,
+        logo: filename,
+      };
+      
+      updateConfiguracion(
+        { id: configuracion.id, data: updateData },
+        {
+          onSuccess: () => {
+            console.log('✅ Logo actualizado automáticamente');
+            // Actualizar el logo en el themeStore para que se refleje en el Header
+            const logoUrl = filename && !filename.startsWith('http')
+              ? imagenesService.getImageUrl({ type: 'configuraciones', filename })
+              : filename;
+            
+            updateConfiguracionStore({
+              nombreCliente: formData.nombreCliente,
+              slogan: formData.slogan,
+              logo: logoUrl,
+            });
+            
+            // Mostrar mensaje de éxito
+            setShowSuccessMessage(true);
+            setTimeout(() => setShowSuccessMessage(false), 3000);
+          },
+        }
+      );
+    } else if (file) {
+      // Si es nueva configuración, guardar archivo para subirlo al hacer submit
+      console.log('📁 Archivo pendiente de subida al crear configuración');
+      setPendingImageFile(file);
+    }
+  };
+
+  // ✅ Manejador para cuando se elimina el logo
+  const handleLogoDelete = () => {
+    if (hasConfiguration && configuracion) {
+      // Actualizar configuración para remover logo
+      const updateData: UpdateConfiguracionDto = {
+        ...formData,
+        logo: '',
+      };
+      
+      updateConfiguracion(
+        { id: configuracion.id, data: updateData },
+        {
+          onSuccess: () => {
+            console.log('✅ Logo eliminado de la configuración');
+            // Actualizar el themeStore para remover el logo del Header
+            updateConfiguracionStore({
+              nombreCliente: formData.nombreCliente,
+              slogan: formData.slogan,
+              logo: '',
+            });
+            
+            // Mostrar mensaje de éxito
+            setShowSuccessMessage(true);
+            setTimeout(() => setShowSuccessMessage(false), 3000);
+          },
+        }
+      );
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (hasConfiguration && configuracion) {
@@ -109,38 +187,87 @@ export const ConfiguracionPage = () => {
             console.log('✅ Configuración actualizada y tema aplicado');
             
             // ✅ Actualizar nombre, slogan e imagen en themeStore para reflejar en Header
+            const logoUrl = formData.logo && !formData.logo.startsWith('http')
+              ? imagenesService.getImageUrl({ type: 'configuraciones', filename: formData.logo })
+              : formData.logo;
+            
             updateConfiguracionStore({
               nombreCliente: formData.nombreCliente,
               slogan: formData.slogan,
-              logo: formData.logo,
+              logo: logoUrl,
             });
 
-            // ✅ Mostrar mensaje de éxito
+            // ✅ Mostrar mensaje de éxito y recargar página
             setShowSuccessMessage(true);
-            setTimeout(() => setShowSuccessMessage(false), 3000);
+            setTimeout(() => {
+              window.location.reload();
+            }, 1500);
           },
         }
       );
     } else {
       // ✅ CREAR nueva configuración
-      createConfiguracion(formData, {
-        onSuccess: () => {
-          // ✅ El tema ya está aplicado en el store gracias al useEffect
-          console.log('✅ Configuración creada y tema aplicado');
-          setHasConfiguration(true);
-          
-          // ✅ Actualizar nombre, slogan e imagen en themeStore para reflejar en Header
-          updateConfiguracionStore({
-            nombreCliente: formData.nombreCliente,
-            slogan: formData.slogan,
-            logo: formData.logo,
-          });
+      let uploadedFilename: string | null = null;
 
-          // ✅ Mostrar mensaje de éxito
-          setShowSuccessMessage(true);
-          setTimeout(() => setShowSuccessMessage(false), 3000);
-        },
-      });
+      try {
+        // 1️⃣ Si hay archivo pendiente, subirlo primero
+        if (pendingImageFile) {
+          console.log('📤 Subiendo imagen antes de crear configuración...');
+          const uploadResult = await uploadImage({
+            file: pendingImageFile,
+            id: sedeId,
+            type: 'configuraciones',
+            subId: subsedeId,
+          });
+          uploadedFilename = uploadResult.data.filename;
+          console.log('✅ Imagen subida:', uploadedFilename);
+          
+          // Actualizar formData con el filename de la imagen subida
+          formData.logo = uploadedFilename;
+        }
+
+        // 2️⃣ Crear configuración con el filename de la imagen (si existe)
+        createConfiguracion(formData, {
+          onSuccess: () => {
+            // ✅ El tema ya está aplicado en el store gracias al useEffect
+            console.log('✅ Configuración creada y tema aplicado');
+            setHasConfiguration(true);
+            setPendingImageFile(null); // Limpiar archivo pendiente
+            
+            // ✅ Actualizar nombre, slogan e imagen en themeStore para reflejar en Header
+            const logoUrl = formData.logo && !formData.logo.startsWith('http')
+              ? imagenesService.getImageUrl({ type: 'configuraciones', filename: formData.logo })
+              : formData.logo;
+            
+            updateConfiguracionStore({
+              nombreCliente: formData.nombreCliente,
+              slogan: formData.slogan,
+              logo: logoUrl,
+            });
+
+            // ✅ Mostrar mensaje de éxito y recargar página
+            setShowSuccessMessage(true);
+            setTimeout(() => {
+              window.location.reload();
+            }, 1500);
+          },
+          onError: (error) => {
+            console.error('❌ Error al crear configuración:', error);
+            
+            // 3️⃣ Si falla la creación, eliminar la imagen subida
+            if (uploadedFilename) {
+              console.log('🗑️ Eliminando imagen subida debido a error en configuración...');
+              deleteImage({
+                type: 'configuraciones',
+                filename: uploadedFilename,
+              });
+            }
+          },
+        });
+      } catch (error) {
+        console.error('❌ Error al subir imagen:', error);
+        // Si falla la subida de imagen, no continuar
+      }
     }
   };
 
@@ -243,17 +370,35 @@ export const ConfiguracionPage = () => {
                 placeholder="Ej: Comprometidos con el progreso"
               />
             </div>
+          </div>
+        </Card>
 
-            <div className="md:col-span-2">
-              <Label htmlFor="logo">URL del Logo</Label>
-              <Input
-                id="logo"
-                value={formData.logo}
-                onChange={(e) => handleChange('logo', e.target.value)}
-                placeholder="https://ejemplo.com/logo.png"
-              />
-            </div>
+        {/* Card: Logo */}
+        <Card className="p-6">
+          <h2 className="text-lg font-semibold text-gray-700 mb-4">Logo Municipal</h2>
+          <div className="flex flex-col items-center">
+            <LogoUploader
+              value={formData.logo}
+              sedeId={sedeId}
+              subsedeId={subsedeId}
+              onChange={(value) => handleChange('logo', value)}
+              onUploadSuccess={handleLogoUpload}
+              onDelete={handleLogoDelete}
+              hasConfiguration={hasConfiguration}
+              size="xl"
+              disabled={isPending}
+            />
+            <p className="text-sm text-gray-500 mt-4 text-center max-w-md">
+              Puedes subir una imagen desde tu dispositivo o usar una URL externa.
+              {!hasConfiguration && ' ⚠️ Completa los campos obligatorios antes de guardar.'}
+            </p>
+          </div>
+        </Card>
 
+        {/* Card: Tema */}
+        <Card className="p-6">
+          <h2 className="text-lg font-semibold text-gray-700 mb-4">Apariencia del Sistema</h2>
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <Label htmlFor="themeId">Tema *</Label>
               <SearchableSelect
@@ -322,8 +467,8 @@ export const ConfiguracionPage = () => {
                 type="number"
                 step="0.01"
                 min="0"
-                value={formData.salarioMinimo}
-                onChange={(e) => handleChange('salarioMinimo', parseFloat(e.target.value) || 0)}
+                value={formData.salarioMinimo === 0 ? '' : formData.salarioMinimo}
+                onChange={(e) => handleChange('salarioMinimo', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                 required
                 placeholder="0.00"
               />
@@ -336,8 +481,8 @@ export const ConfiguracionPage = () => {
                 type="number"
                 step="0.01"
                 min="0"
-                value={formData.uma}
-                onChange={(e) => handleChange('uma', parseFloat(e.target.value) || 0)}
+                value={formData.uma === 0 ? '' : formData.uma}
+                onChange={(e) => handleChange('uma', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                 required
                 placeholder="0.00"
               />
@@ -351,8 +496,8 @@ export const ConfiguracionPage = () => {
                 step="0.01"
                 min="0"
                 max="100"
-                value={formData.tasaRecargo}
-                onChange={(e) => handleChange('tasaRecargo', parseFloat(e.target.value) || 0)}
+                value={formData.tasaRecargo === 0 ? '' : formData.tasaRecargo}
+                onChange={(e) => handleChange('tasaRecargo', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                 required
                 placeholder="0.00"
               />

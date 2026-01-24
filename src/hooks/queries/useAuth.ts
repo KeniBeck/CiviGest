@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '@/services/auth.service';
 import { configuracionService } from '@/services/configuracion.service';
+import { imagenesService } from '@/services/imagenes.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { ROUTES } from '@/config/routes';
@@ -14,13 +15,35 @@ export const authKeys = {
 // VALIDAR TOKEN - Al iniciar la app
 // ============================================
 export const useValidateToken = () => {
-  const { token, clearAuth } = useAuthStore();
+  const { token, user, clearAuth } = useAuthStore();
+  const { setConfiguracion } = useThemeStore();
 
   const query = useQuery({
     queryKey: authKeys.validate,
     queryFn: async () => {
-      // Llamar al endpoint de validación
+      // 1. Validar token
       const response = await authService.validateToken();
+      
+      // 2. Si el token es válido y hay usuario, cargar configuración
+      if (user?.subsedeId) {
+        try {
+          const configResponse = await configuracionService.getBySubsede(user.subsedeId);
+          
+          // Generar URL completa del logo si existe
+          const configuracionConLogoUrl = {
+            ...configResponse.data,
+            logo: configResponse.data.logo && !configResponse.data.logo.startsWith('http')
+              ? imagenesService.getImageUrl({ type: 'configuraciones', filename: configResponse.data.logo })
+              : configResponse.data.logo,
+          };
+          
+          setConfiguracion(configuracionConLogoUrl);
+          console.log('✅ Configuración recargada al validar token');
+        } catch (error) {
+          console.warn('⚠️ No se pudo cargar configuración:', error);
+        }
+      }
+      
       return response;
     },
     enabled: !!token, // Solo si hay token en localStorage
@@ -72,8 +95,19 @@ export const useLogin = () => {
       };
     },
     onSuccess: ({ configuracion }) => {
+      // ✅ Generar URL completa del logo antes de guardar
+      const configuracionConLogoUrl = {
+        ...configuracion,
+        logo: configuracion.logo && !configuracion.logo.startsWith('http')
+          ? imagenesService.getImageUrl({ type: 'configuraciones', filename: configuracion.logo })
+          : configuracion.logo,
+      };
+      
       // Guardar configuración y tema en Zustand
-      setConfiguracion(configuracion);
+      setConfiguracion(configuracionConLogoUrl);
+
+      console.log('✅ Configuración cargada:', configuracionConLogoUrl.nombreCliente);
+      console.log('✅ Logo URL:', configuracionConLogoUrl.logo);
 
       // Invalidar queries
       queryClient.invalidateQueries({ queryKey: authKeys.validate });
