@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useUpdatePermiso } from '@/hooks/queries/usePermiso';
 import { useTipoPermisos } from '@/hooks/queries/useTipoPermiso';
 import { useNotification } from '@/hooks/useNotification';
+import { useDeleteDocumento } from '@/hooks/queries/useDocumentos';
+import { useDeleteImage } from '@/hooks/queries/useImagenes';
+import { PdfField, ImageField } from '@/components/features/documentos';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertCircle } from 'lucide-react';
 import type { Permiso, UpdatePermiso } from '@/types/permiso.type';
+import { documentosService } from '@/services/documento.service';
 
 interface EditPermisoModalProps {
   open: boolean;
@@ -25,6 +29,8 @@ interface EditPermisoModalProps {
 export const EditPermisoModal = ({ open, onClose, permiso }: EditPermisoModalProps) => {
   const { mutate: updatePermiso, isPending } = useUpdatePermiso();
   const notify = useNotification();
+  const { mutate: deleteDocumento } = useDeleteDocumento();
+  const { mutate: deleteImage } = useDeleteImage();
   
   // Cargar tipos de permiso
   const { data: tiposPermisoData } = useTipoPermisos({ page: 1, limit: 100, isActive: true });
@@ -43,6 +49,24 @@ export const EditPermisoModal = ({ open, onClose, permiso }: EditPermisoModalPro
   });
 
   const [camposAdicionales, setCamposAdicionales] = useState<Record<string, any>>({});
+  
+  // Estado para rastrear nuevos archivos subidos (para rollback si hay error)
+  const [archivosSubidos, setArchivosSubidos] = useState<{
+    pdfs: string[];
+    imagenes: string[];
+  }>({
+    pdfs: [],
+    imagenes: [],
+  });
+  
+  // Estado para rastrear archivos originales (para no eliminarlos en rollback)
+  const [archivosOriginales, setArchivosOriginales] = useState<{
+    pdfs: string[];
+    imagenes: string[];
+  }>({
+    pdfs: [],
+    imagenes: [],
+  });
 
   // Cargar datos del permiso cuando cambie
   useEffect(() => {
@@ -59,9 +83,37 @@ export const EditPermisoModal = ({ open, onClose, permiso }: EditPermisoModalPro
         descripcion: permiso.descripcion,
         observaciones: permiso.observaciones || '',
       });
-      setCamposAdicionales(permiso.camposAdicionales || {});
+      
+      const camposAdicionalesOriginales = permiso.camposAdicionales || {};
+      setCamposAdicionales(camposAdicionalesOriginales);
+      
+      // Identificar archivos originales
+      const tipoPermiso = tiposPermisoData?.items.find((tp) => tp.id === permiso.tipoPermisoId);
+      if (tipoPermiso?.camposPersonalizados?.fields) {
+        const pdfsOriginales: string[] = [];
+        const imagenesOriginales: string[] = [];
+        
+        tipoPermiso.camposPersonalizados.fields.forEach((field) => {
+          const valor = camposAdicionalesOriginales[field.name];
+          if (valor) {
+            if (field.type === 'pdf') {
+              pdfsOriginales.push(valor);
+            } else if (field.type === 'image') {
+              imagenesOriginales.push(valor);
+            }
+          }
+        });
+        
+        setArchivosOriginales({
+          pdfs: pdfsOriginales,
+          imagenes: imagenesOriginales,
+        });
+      }
+      
+      // Limpiar archivos subidos nuevos
+      setArchivosSubidos({ pdfs: [], imagenes: [] });
     }
-  }, [permiso]);
+  }, [permiso, tiposPermisoData]);
 
   // Obtener el tipo de permiso seleccionado
   const tipoPermisoSeleccionado = tiposPermisoData?.items.find(
@@ -87,9 +139,47 @@ export const EditPermisoModal = ({ open, onClose, permiso }: EditPermisoModalPro
         },
         onError: (error) => {
           notify.apiError(error);
+          
+          // ❌ ROLLBACK: Eliminar solo los nuevos archivos subidos
+          rollbackNuevosArchivos();
         },
       }
     );
+  };
+
+  /**
+   * Eliminar solo los archivos nuevos subidos en caso de error
+   * (No eliminar los archivos originales del permiso)
+   */
+  const rollbackNuevosArchivos = async () => {
+    // Eliminar PDFs nuevos
+    for (const filename of archivosSubidos.pdfs) {
+      // Solo si no es un archivo original
+      if (!archivosOriginales.pdfs.includes(filename)) {
+        try {
+          await deleteDocumento({ filename });
+          console.log(`✅ PDF nuevo eliminado: ${filename}`);
+        } catch (error) {
+          console.error(`❌ Error al eliminar PDF ${filename}:`, error);
+        }
+      }
+    }
+
+    // Eliminar imágenes nuevas
+    for (const filename of archivosSubidos.imagenes) {
+      // Solo si no es un archivo original
+      if (!archivosOriginales.imagenes.includes(filename)) {
+        try {
+          await deleteImage({ type: 'permisos', filename });
+          console.log(`✅ Imagen nueva eliminada: ${filename}`);
+        } catch (error) {
+          console.error(`❌ Error al eliminar imagen ${filename}:`, error);
+        }
+      }
+    }
+
+    // Limpiar estado de nuevos archivos
+    setArchivosSubidos({ pdfs: [], imagenes: [] });
   };
 
   const handleChange = (field: keyof UpdatePermiso, value: string | number) => {
@@ -101,6 +191,74 @@ export const EditPermisoModal = ({ open, onClose, permiso }: EditPermisoModalPro
       ...prev,
       [fieldName]: value,
     }));
+  };
+
+  /**
+   * Manejar cambio de campo PDF
+   */
+  const handlePdfChange = (fieldName: string, rutaArchivo: string | null) => {
+    if (rutaArchivo) {
+      const filename = documentosService.extractFilename(rutaArchivo);
+      
+      setCamposAdicionales((prev) => ({
+        ...prev,
+        [fieldName]: filename,
+      }));
+
+      // Registrar solo si es un archivo nuevo (no original)
+      if (!archivosOriginales.pdfs.includes(filename)) {
+        setArchivosSubidos((prev) => ({
+          ...prev,
+          pdfs: [...prev.pdfs, filename],
+        }));
+      }
+    } else {
+      const filenameAnterior = camposAdicionales[fieldName];
+      if (filenameAnterior && !archivosOriginales.pdfs.includes(filenameAnterior)) {
+        setArchivosSubidos((prev) => ({
+          ...prev,
+          pdfs: prev.pdfs.filter((f) => f !== filenameAnterior),
+        }));
+      }
+      
+      setCamposAdicionales((prev) => ({
+        ...prev,
+        [fieldName]: null,
+      }));
+    }
+  };
+
+  /**
+   * Manejar cambio de campo de imagen
+   */
+  const handleImageChange = (fieldName: string, filename: string | null) => {
+    if (filename) {
+      setCamposAdicionales((prev) => ({
+        ...prev,
+        [fieldName]: filename,
+      }));
+
+      // Registrar solo si es un archivo nuevo (no original)
+      if (!archivosOriginales.imagenes.includes(filename)) {
+        setArchivosSubidos((prev) => ({
+          ...prev,
+          imagenes: [...prev.imagenes, filename],
+        }));
+      }
+    } else {
+      const filenameAnterior = camposAdicionales[fieldName];
+      if (filenameAnterior && !archivosOriginales.imagenes.includes(filenameAnterior)) {
+        setArchivosSubidos((prev) => ({
+          ...prev,
+          imagenes: prev.imagenes.filter((f) => f !== filenameAnterior),
+        }));
+      }
+      
+      setCamposAdicionales((prev) => ({
+        ...prev,
+        [fieldName]: null,
+      }));
+    }
   };
 
   // Verificar si el permiso puede ser editado
@@ -311,23 +469,59 @@ export const EditPermisoModal = ({ open, onClose, permiso }: EditPermisoModalPro
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-700">Campos Adicionales</h3>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {tipoPermisoSeleccionado.camposPersonalizados.fields.map((field, index) => (
-                        <div key={index}>
-                          <Label htmlFor={`campo_${field.name}`}>
-                            {field.name} {field.required && '*'}
-                          </Label>
-                          <Input
-                            id={`campo_${field.name}`}
-                            type={field.type}
-                            value={camposAdicionales[field.name] || ''}
-                            onChange={(e) => handleCampoAdicionalChange(field.name, e.target.value)}
-                            required={field.required}
-                            disabled={!canEdit}
-                            placeholder={`Ingrese ${field.name.toLowerCase()}`}
-                          />
-                        </div>
-                      ))}
+                    <div className="grid grid-cols-1 gap-4">
+                      {tipoPermisoSeleccionado.camposPersonalizados.fields.map((field, index) => {
+                        // Campo tipo PDF
+                        if (field.type === 'pdf') {
+                          return (
+                            <PdfField
+                              key={index}
+                              nombre={field.name}
+                              label={field.name}
+                              descripcion="Suba un archivo PDF"
+                              required={field.required}
+                              value={camposAdicionales[field.name]}
+                              onChange={(ruta) => handlePdfChange(field.name, ruta)}
+                              disabled={!canEdit}
+                            />
+                          );
+                        }
+
+                        // Campo tipo imagen
+                        if (field.type === 'image') {
+                          return (
+                            <ImageField
+                              key={index}
+                              nombre={field.name}
+                              label={field.name}
+                              descripcion="Suba una imagen"
+                              required={field.required}
+                              value={camposAdicionales[field.name]}
+                              onChange={(filename) => handleImageChange(field.name, filename)}
+                              imageType="permisos"
+                              disabled={!canEdit}
+                            />
+                          );
+                        }
+
+                        // Otros tipos de campos
+                        return (
+                          <div key={index}>
+                            <Label htmlFor={`campo_${field.name}`}>
+                              {field.name} {field.required && '*'}
+                            </Label>
+                            <Input
+                              id={`campo_${field.name}`}
+                              type={field.type}
+                              value={camposAdicionales[field.name] || ''}
+                              onChange={(e) => handleCampoAdicionalChange(field.name, e.target.value)}
+                              required={field.required}
+                              disabled={!canEdit}
+                              placeholder={`Ingrese ${field.name.toLowerCase()}`}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
