@@ -1,5 +1,5 @@
 
-import { Receipt, Calendar, DollarSign, User, FileText, Building2 } from 'lucide-react';
+import { Receipt, Calendar, DollarSign, User, FileText, Building2, Printer, Download } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -8,6 +8,12 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { useNotification } from '@/hooks/useNotification';
+import { ticketService } from '@/services/ticket.service';
+import { configuracionService } from '@/services/configuracion.service';
+import { permisoService } from '@/services/permiso.service';
+import { useAuthStore } from '@/stores/authStore';
+import { useState } from 'react';
 import type { PagoPermiso } from '@/types/pago-permisos.type';
 
 interface ComprobanteModalProps {
@@ -17,10 +23,93 @@ interface ComprobanteModalProps {
 }
 
 export const ComprobanteModal = ({ open, onOpenChange, pago }: ComprobanteModalProps) => {
+  const { user } = useAuthStore();
+  const notify = useNotification();
+  const [isGenerating, setIsGenerating] = useState(false);
+
   if (!pago) return null;
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleGenerateTicket = async () => {
+    if (!pago.permisoId) {
+      notify.error('Error', 'No se encontró el ID del permiso');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const permisoResponse = await permisoService.getById(pago.permisoId);
+      const permiso = permisoResponse.data;
+
+      let configuracion = null;
+      if (user?.subsedeId) {
+        try {
+          const configResponse = await configuracionService.getBySubsede(user.subsedeId);
+          configuracion = configResponse.data;
+        } catch (error) {
+          console.warn('No se pudo cargar la configuración:', error);
+        }
+      }
+
+      const pdfBlob = await ticketService.generateTicketPermiso({
+        pago,
+        permiso,
+        logoUrl: configuracion?.logo,
+        nombreCliente: configuracion?.nombreCliente,
+        slogan: configuracion?.slogan,
+      });
+
+      ticketService.openPDF(pdfBlob);
+      notify.success('Éxito', 'Ticket generado correctamente');
+    } catch (error) {
+      console.error('Error al generar ticket:', error);
+      notify.error('Error', 'Error al generar el ticket');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleDownloadTicket = async () => {
+    if (!pago.permisoId) {
+      notify.error('Error', 'No se encontró el ID del permiso');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const permisoResponse = await permisoService.getById(pago.permisoId);
+      const permiso = permisoResponse.data;
+
+      let configuracion = null;
+      if (user?.subsedeId) {
+        try {
+          const configResponse = await configuracionService.getBySubsede(user.subsedeId);
+          configuracion = configResponse.data;
+        } catch (error) {
+          console.warn('No se pudo cargar la configuración:', error);
+        }
+      }
+
+      const pdfBlob = await ticketService.generateTicketPermiso({
+        pago,
+        permiso,
+        logoUrl: configuracion?.logo,
+        nombreCliente: configuracion?.nombreCliente,
+        slogan: configuracion?.slogan,
+      });
+
+      const filename = `ticket-${permiso.folio}-${Date.now()}.pdf`;
+      ticketService.downloadPDF(pdfBlob, filename);
+      notify.success('Éxito', 'Ticket descargado correctamente');
+    } catch (error) {
+      console.error('Error al descargar ticket:', error);
+      notify.error('Error', 'Error al descargar el ticket');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -227,14 +316,43 @@ export const ComprobanteModal = ({ open, onOpenChange, pago }: ComprobanteModalP
       </div>
 
       {/* Footer con Botones */}
-      <DialogFooter className="px-6 py-4 border-t bg-gray-50 print:hidden">
-        <Button variant="outline" onClick={() => onOpenChange(false)}>
-          Cerrar
-        </Button>
-        <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700">
-          <Receipt className="mr-2 h-4 w-4" />
-          Imprimir
-        </Button>
+      <DialogFooter className="px-4 sm:px-6 py-4 border-t bg-gray-50 print:hidden">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto order-last sm:order-first"
+          >
+            Cerrar
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handlePrint} 
+            className="w-full sm:w-auto border-blue-300 text-blue-600 hover:bg-blue-50"
+          >
+            <Receipt className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Imprimir Vista</span>
+            <span className="sm:hidden">Vista</span>
+          </Button>
+          <Button 
+            onClick={handleDownloadTicket}
+            disabled={isGenerating}
+            className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">{isGenerating ? 'Generando...' : 'Descargar Ticket'}</span>
+            <span className="sm:hidden">{isGenerating ? 'Generando...' : 'Descargar'}</span>
+          </Button>
+          <Button 
+            onClick={handleGenerateTicket}
+            disabled={isGenerating}
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Printer className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">{isGenerating ? 'Generando...' : 'Imprimir Ticket'}</span>
+            <span className="sm:hidden">{isGenerating ? 'Generando...' : 'Ticket'}</span>
+          </Button>
+        </div>
       </DialogFooter>
     </DialogContent>
   </Dialog>

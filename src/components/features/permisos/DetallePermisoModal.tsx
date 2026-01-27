@@ -20,8 +20,14 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  Image as ImageIcon,
+  Eye,
+  Download,
 } from 'lucide-react';
+import { imagenesService } from '@/services/imagenes.service';
+import { documentosService } from '@/services/documento.service';
 import type { Permiso } from '@/types/permiso.type';
+import { useTipoPermisos } from '@/hooks/queries/useTipoPermiso';
 
 interface DetallePermisoModalProps {
   open: boolean;
@@ -30,7 +36,12 @@ interface DetallePermisoModalProps {
 }
 
 export const DetallePermisoModal = ({ open, onClose, permiso }: DetallePermisoModalProps) => {
+  // Cargar tipo de permiso para obtener campos personalizados
+  const { data: tiposPermisoData } = useTipoPermisos({ page: 1, limit: 100, isActive: true });
+  
   if (!permiso) return null;
+  
+  const tipoPermiso = tiposPermisoData?.items.find((tp) => tp.id === permiso.tipoPermisoId);
 
   const getEstatusConfig = (estatus: string) => {
     const configs = {
@@ -239,13 +250,113 @@ export const DetallePermisoModal = ({ open, onClose, permiso }: DetallePermisoMo
                 <Separator />
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-gray-700">Campos Adicionales</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                    {Object.entries(permiso.camposAdicionales).map(([key, value]) => (
-                      <div key={key}>
-                        <p className="text-sm font-medium text-gray-600">{key}</p>
-                        <p className="text-base text-gray-900">{String(value)}</p>
+                  <div className="space-y-4">
+                    {tipoPermiso?.camposPersonalizados?.fields ? (
+                      // Mostrar según definición de campos personalizados
+                      tipoPermiso.camposPersonalizados.fields.map((field) => {
+                        const valor = permiso.camposAdicionales[field.name];
+                        if (!valor) return null;
+
+                        // Campo tipo imagen
+                        if (field.type === 'image') {
+                          const imageUrl = imagenesService.getImageUrl({ 
+                            type: 'permisos', 
+                            filename: valor 
+                          });
+                          return (
+                            <div key={field.name} className="space-y-2">
+                              <p className="text-sm font-medium text-gray-600">{field.name}</p>
+                              <div className="p-3 border rounded-lg bg-green-50 border-green-200">
+                                <div className="mb-3 relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+                                  <img 
+                                    src={imageUrl} 
+                                    alt={field.name}
+                                    className="w-full h-full object-contain"
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <ImageIcon className="h-5 w-5 text-green-600 shrink-0" />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-medium text-green-900">Imagen</p>
+                                      <p className="text-xs text-green-700 truncate">{valor}</p>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => window.open(imageUrl, '_blank')}
+                                  >
+                                    <Eye className="h-4 w-4 mr-1" />
+                                    Ver
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // Campo tipo PDF
+                        if (field.type === 'pdf') {
+                          const filename = documentosService.extractFilename(valor);
+                          return (
+                            <div key={field.name} className="space-y-2">
+                              <p className="text-sm font-medium text-gray-600">{field.name}</p>
+                              <div className="p-3 border rounded-lg bg-blue-50 border-blue-200">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <FileText className="h-5 w-5 text-blue-600 shrink-0" />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-medium text-blue-900">Documento PDF</p>
+                                      <p className="text-xs text-blue-700 truncate">{filename}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => documentosService.viewDocumento(filename)}
+                                    >
+                                      <Eye className="h-4 w-4 mr-1" />
+                                      Ver
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => documentosService.downloadDocumento(filename)}
+                                    >
+                                      <Download className="h-4 w-4 mr-1" />
+                                      Descargar
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // Otros tipos de campos (texto, número, etc.)
+                        return (
+                          <div key={field.name} className="p-4 bg-gray-50 rounded-lg">
+                            <p className="text-sm font-medium text-gray-600">{field.name}</p>
+                            <p className="text-base text-gray-900">{String(valor)}</p>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      // Fallback: mostrar como antes si no hay definición de campos
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                        {Object.entries(permiso.camposAdicionales).map(([key, value]) => (
+                          <div key={key}>
+                            <p className="text-sm font-medium text-gray-600">{key}</p>
+                            <p className="text-base text-gray-900">{String(value)}</p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               </>

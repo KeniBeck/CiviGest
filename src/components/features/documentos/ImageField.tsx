@@ -6,6 +6,7 @@ import {
   useUploadImage, 
   useDeleteImage 
 } from '@/hooks/queries/useImagenes';
+import { imagenesService } from '@/services/imagenes.service';
 import { Upload, Image as ImageIcon, Trash2, Loader2, X, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ImageType } from '@/types/imagenes.type';
@@ -135,8 +136,8 @@ export const ImageField = ({
   };
 
   const getImageUrl = (filename: string): string => {
-    // URL base para visualizar la imagen
-    return `/imagenes/${imageType}/${filename}`;
+    // Usar imagenesService para obtener URL completa del backend
+    return imagenesService.getImageUrl({ type: imageType, filename });
   };
 
   const isUploading = uploadMutation.isPending;
