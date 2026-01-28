@@ -1,5 +1,5 @@
 
-import { Receipt, Calendar, DollarSign, User, FileText, Building2, Printer, Download } from 'lucide-react';
+import { Receipt, Calendar, DollarSign, User, FileText, Building2, Printer, Download} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -12,9 +12,11 @@ import { useNotification } from '@/hooks/useNotification';
 import { ticketService } from '@/services/ticket.service';
 import { configuracionService } from '@/services/configuracion.service';
 import { permisoService } from '@/services/permiso.service';
+import { whatsappService } from '@/services/whatsapp.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useState } from 'react';
 import type { PagoPermiso } from '@/types/pago-permisos.type';
+import { IoLogoWhatsapp } from "react-icons/io";
 
 interface ComprobanteModalProps {
   open: boolean;
@@ -29,8 +31,29 @@ export const ComprobanteModal = ({ open, onOpenChange, pago }: ComprobanteModalP
 
   if (!pago) return null;
 
-  const handlePrint = () => {
-    window.print();
+  const handleSendWhatsApp = async () => {
+    if (!pago.permisoId) {
+      notify.error('Error', 'No se encontró el ID del permiso');
+      return;
+    }
+
+    try {
+      const permisoResponse = await permisoService.getById(pago.permisoId);
+      const permiso = permisoResponse.data;
+
+      whatsappService.sendComprobante({
+        dni: pago.documentoCiudadano,
+        idPago: pago.id,
+        nombreCiudadano: pago.nombreCiudadano,
+        folio: permiso.folio,
+        phoneNumber: permiso.telefonoCiudadano
+      });
+
+      notify.success('Éxito', 'Redirigiendo a WhatsApp...');
+    } catch (error) {
+      console.error('Error al enviar por WhatsApp:', error);
+      notify.error('Error', 'No se pudo obtener la información del permiso');
+    }
   };
 
   const handleGenerateTicket = async () => {
@@ -327,12 +350,12 @@ export const ComprobanteModal = ({ open, onOpenChange, pago }: ComprobanteModalP
           </Button>
           <Button 
             variant="outline" 
-            onClick={handlePrint} 
-            className="w-full sm:w-auto border-blue-300 text-blue-600 hover:bg-blue-50"
+            onClick={handleSendWhatsApp} 
+            className="w-full sm:w-auto border-green-300 text-green-600 hover:bg-green-50"
           >
-            <Receipt className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Imprimir Vista</span>
-            <span className="sm:hidden">Vista</span>
+            <IoLogoWhatsapp className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Enviar por WhatsApp</span>
+            <span className="sm:hidden">WhatsApp</span>
           </Button>
           <Button 
             onClick={handleDownloadTicket}

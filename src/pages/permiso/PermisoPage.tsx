@@ -630,8 +630,10 @@ export const PermisoPage = () => {
         open={isPagoModalOpen}
         onOpenChange={closePagoModal}
         permiso={selectedPermiso}
-        onSuccess={() => {
-          // Refrescar datos si es necesario
+        onSuccess={(pagoCreado) => {
+          // Abrir modal de comprobante con los datos del pago creado
+          setSelectedPago(pagoCreado);
+          setIsComprobanteModalOpen(true);
         }}
       />
 
