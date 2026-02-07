@@ -5,6 +5,9 @@ import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { tipoAgenteService } from '@/services/tipo-agente.service';
 import { departamentoService } from '@/services/departamento.service';
 import { patrullaService } from '@/services/patrulla.service';
+import { CreateTipoAgenteModal } from '../tipo-agentes/CreateTipoAgenteModal';
+import { CreateDepartamentoModal } from '../departamentos/CreateDepartamentoModal';
+import { CreatePatrullaModal } from '../patrullas/CreatePatrullaModal';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Plus } from 'lucide-react';
 import type { CreateAgente } from '@/types/agente.type';
 import type { TipoAgente } from '@/types/tipo-agente.type';
 import type { Departamento } from '@/types/departamento.type';
@@ -29,6 +32,12 @@ interface CreateAgenteModalProps {
 export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => {
   const notify = useNotification();
   const { mutate: createAgente, isPending } = useCreateAgente();
+  const [showPassword, setShowPassword] = useState(false);
+  
+  // Estados para modales de creación rápida
+  const [showCreateTipoAgente, setShowCreateTipoAgente] = useState(false);
+  const [showCreateDepartamento, setShowCreateDepartamento] = useState(false);
+  const [showCreatePatrulla, setShowCreatePatrulla] = useState(false);
 
   const [formData, setFormData] = useState<CreateAgente>({
     nombres: '',
@@ -39,7 +48,7 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
     numPlantilla: '',
     numEmpleadoBiometrico: '',
     foto: '',
-    whatsapp: 0,
+    whatsapp: '',
     correo: '',
     contrasena: '',
     departamentoId: 0,
@@ -62,7 +71,7 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
           numPlantilla: '',
           numEmpleadoBiometrico: '',
           foto: '',
-          whatsapp: 0,
+          whatsapp: '',
           correo: '',
           contrasena: '',
           departamentoId: 0,
@@ -146,7 +155,7 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="numPlantilla">Número de Plantilla *</Label>
+                    <Label htmlFor="numPlantilla">Número de Placa *</Label>
                     <Input
                       id="numPlantilla"
                       value={formData.numPlantilla}
@@ -168,7 +177,19 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
                   </div>
 
                   <div>
-                    <Label htmlFor="tipoId">Tipo de Agente *</Label>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label htmlFor="tipoId">Tipo de Agente *</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowCreateTipoAgente(true)}
+                        className="h-7 text-xs"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Crear Tipo
+                      </Button>
+                    </div>
                     <SearchableSelect
                       placeholder="Seleccionar tipo de agente"
                       value={formData.tipoId || 0}
@@ -189,7 +210,19 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
                   </div>
 
                   <div>
-                    <Label htmlFor="departamentoId">Departamento *</Label>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label htmlFor="departamentoId">Departamento *</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowCreateDepartamento(true)}
+                        className="h-7 text-xs"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Crear Depto.
+                      </Button>
+                    </div>
                     <SearchableSelect
                       placeholder="Seleccionar departamento"
                       value={formData.departamentoId || 0}
@@ -210,7 +243,19 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
                   </div>
 
                   <div>
-                    <Label htmlFor="patrullaId">Patrulla (Opcional)</Label>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label htmlFor="patrullaId">Patrulla (Opcional)</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowCreatePatrulla(true)}
+                        className="h-7 text-xs"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Crear Patrulla
+                      </Button>
+                    </div>
                     <SearchableSelect
                       placeholder="Seleccionar patrulla"
                       value={formData.patrullaId || 0}
@@ -253,9 +298,8 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
                     <Label htmlFor="whatsapp">WhatsApp *</Label>
                     <Input
                       id="whatsapp"
-                      type="number"
                       value={formData.whatsapp || ''}
-                      onChange={(e) => handleChange('whatsapp', parseInt(e.target.value))}
+                      onChange={(e) => handleChange('whatsapp', e.target.value)}
                       required
                       placeholder="3121234567"
                     />
@@ -263,14 +307,29 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
 
                   <div>
                     <Label htmlFor="contrasena">Contraseña *</Label>
-                    <Input
-                      id="contrasena"
-                      type="password"
-                      value={formData.contrasena}
-                      onChange={(e) => handleChange('contrasena', e.target.value)}
-                      required
-                      placeholder="Contraseña segura"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="contrasena"
+                        type={showPassword ? 'text' : 'password'}
+                        value={formData.contrasena}
+                        onChange={(e) => handleChange('contrasena', e.target.value)}
+                        required
+                        placeholder="Contraseña segura"
+                        className="pr-11"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div>
@@ -309,6 +368,20 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
           </DialogFooter>
         </form>
       </DialogContent>
+
+      {/* Modales de creación rápida */}
+      <CreateTipoAgenteModal
+        open={showCreateTipoAgente}
+        onClose={() => setShowCreateTipoAgente(false)}
+      />
+      <CreateDepartamentoModal
+        open={showCreateDepartamento}
+        onClose={() => setShowCreateDepartamento(false)}
+      />
+      <CreatePatrullaModal
+        open={showCreatePatrulla}
+        onClose={() => setShowCreatePatrulla(false)}
+      />
     </Dialog>
   );
 };

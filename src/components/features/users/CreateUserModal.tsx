@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Search } from 'lucide-react';
+import { useDebounce } from '@/hooks/useDebounce';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,6 @@ import {
 import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { useCreateUser } from '@/hooks/queries/useUsers';
 import { useRoles } from '@/hooks/queries/useRoles';
-import { useSubsedesForAccess } from '@/hooks/queries/useSubsedes';
 import { useUserLevel } from '@/hooks/useUserLevel';
 import { useNotification } from '@/hooks/useNotification';
 import { sedeService } from '@/services/sede.service';
@@ -53,13 +53,15 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
   const [selectedSedeId, setSelectedSedeId] = useState<number | undefined>(
     userLevel === 'ESTATAL' ? currentUser?.sedeId : undefined
   );
+  const [showPassword, setShowPassword] = useState(false);
   
-  // ✅ Cargar subsedes con useQuery
-  const { data: availableSubsedes, isLoading: loadingSubsedes } = useSubsedesForAccess(
-    userLevel,
-    currentUser?.sedeId,
-    selectedSedeId
-  );
+  // ✅ Estado para todas las subsedes (para checkboxes múltiples)
+  const [allSubsedes, setAllSubsedes] = useState<Subsede[]>([]);
+  const [loadingAllSubsedes, setLoadingAllSubsedes] = useState(false);
+  const [subsedeSearchTerm, setSubsedeSearchTerm] = useState('');
+  
+  // ✅ Debounce del término de búsqueda
+  const debouncedSubsedeSearch = useDebounce(subsedeSearchTerm, 300);
 
   // ✅ Filtrar roles según el nivel del usuario autenticado
   const availableRoles = useMemo(() => {
@@ -123,11 +125,87 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
   const [formData, setFormData] = useState<Partial<CreateUserDto>>(getInitialFormData());
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // ✅ Filtrar subsedes según el término de búsqueda (mínimo 2 caracteres)
+  const filteredSubsedes = useMemo(() => {
+    // Requerir al menos 2 caracteres para filtrar (evita lag con 1 letra)
+    if (!debouncedSubsedeSearch || debouncedSubsedeSearch.length < 2) {
+      return allSubsedes;
+    }
+    
+    const searchLower = debouncedSubsedeSearch.toLowerCase();
+    return allSubsedes.filter(subsede => 
+      subsede.name.toLowerCase().includes(searchLower) ||
+      subsede.code?.toLowerCase().includes(searchLower)
+    );
+  }, [allSubsedes, debouncedSubsedeSearch]);
+  
+  // ✅ Determinar cuántos municipios mostrar (para evitar lag visual)
+  const displaySubsedes = useMemo(() => {
+    // Si está buscando con 2+ caracteres, mostrar todos los resultados filtrados
+    if (debouncedSubsedeSearch && debouncedSubsedeSearch.length >= 2) {
+      return filteredSubsedes;
+    }
+    
+    // Si hay más de 50 municipios y NO está buscando (o tiene solo 1 letra), mostrar solo primeros 50
+    if (allSubsedes.length > 50) {
+      return allSubsedes.slice(0, 50);
+    }
+    
+    return allSubsedes;
+  }, [allSubsedes, filteredSubsedes, debouncedSubsedeSearch]);
+
+  // ✅ Cargar TODAS las subsedes (todas las páginas) cuando cambia la sede
+  useEffect(() => {
+    const loadAllSubsedesRecursive = async () => {
+      const sedeIdToUse = userLevel === 'ESTATAL' ? currentUser?.sedeId : selectedSedeId;
+      
+      if (!sedeIdToUse) {
+        setAllSubsedes([]);
+        return;
+      }
+
+      setLoadingAllSubsedes(true);
+      try {
+        let allItems: Subsede[] = [];
+        let currentPage = 1;
+        let hasMore = true;
+
+        // Cargar todas las páginas recursivamente
+        while (hasMore) {
+          const response = await subsedeService.getAll({
+            sedeId: sedeIdToUse,
+            page: currentPage,
+            limit: 50, // Usar el límite del backend
+            search: '',
+          });
+          
+          allItems = [...allItems, ...response.data.items];
+          hasMore = response.data.pagination.hasNextPage;
+          currentPage++;
+        }
+        
+        setAllSubsedes(allItems);
+      } catch (error) {
+        console.error('Error al cargar todas las subsedes:', error);
+        notify.error('Error', 'No se pudieron cargar los municipios');
+        setAllSubsedes([]);
+      } finally {
+        setLoadingAllSubsedes(false);
+      }
+    };
+
+    if (open) {
+      loadAllSubsedesRecursive();
+    }
+  }, [open, selectedSedeId, userLevel, currentUser?.sedeId]);
+
   // ✅ Reset form cuando se cierra
   useEffect(() => {
     if (!open) {
       setFormData(getInitialFormData());
       setErrors({});
+      setAllSubsedes([]);
+      setSubsedeSearchTerm('');
       setSelectedSedeId(
         userLevel === 'ESTATAL' ? currentUser?.sedeId : undefined
       );
@@ -323,14 +401,28 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
             {/* Password */}
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña *</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={(e) => handleChange('password', e.target.value)}
-                className={errors.password ? 'border-red-500' : ''}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={(e) => handleChange('password', e.target.value)}
+                  className={`pr-11 ${errors.password ? 'border-red-500' : ''}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
               {errors.password && <p className="text-xs text-red-600">{errors.password}</p>}
             </div>
 
@@ -552,28 +644,118 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
                   ⚠️ Debe seleccionar un estado primero para ver los municipios disponibles
                 </p>
               </div>
-            ) : loadingSubsedes ? (
+            ) : loadingAllSubsedes ? (
               <div className="flex items-center justify-center p-4 neomorph-flat rounded-lg">
                 <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
                 <span className="ml-2 text-sm text-gray-500">Cargando municipios...</span>
               </div>
-            ) : availableSubsedes && availableSubsedes.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3 p-4 neomorph-flat rounded-lg max-h-48 overflow-y-auto">
-                {availableSubsedes.map((subsede) => (
-                  <label
-                    key={subsede.id}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={formData.subsedeAccessIds?.includes(subsede.id)}
-                      onChange={() => toggleSubsedeAccess(subsede.id)}
-                      className="h-4 w-4 rounded border-gray-300"
+            ) : allSubsedes && allSubsedes.length > 0 ? (
+              <>
+                {/* Barra de búsqueda y acciones */}
+                <div className="space-y-3 mb-3">
+                  {/* Buscador */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Buscar municipio (mín. 2 letras)..."
+                      value={subsedeSearchTerm}
+                      onChange={(e) => setSubsedeSearchTerm(e.target.value)}
+                      className="pl-9 h-10"
                     />
-                    <span className="text-sm text-gray-700">{subsede.name}</span>
-                  </label>
-                ))}
-              </div>
+                  </div>
+                  
+                  {/* Contador y botón de selección */}
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs text-gray-600">
+                      {formData.subsedeAccessIds?.length || 0} seleccionados
+                      {debouncedSubsedeSearch && debouncedSubsedeSearch.length >= 2 ? (
+                        <span className="ml-1 text-blue-600">
+                          ({filteredSubsedes.length} de {allSubsedes.length} encontrados)
+                        </span>
+                      ) : debouncedSubsedeSearch && debouncedSubsedeSearch.length === 1 ? (
+                        <span className="ml-1 text-gray-500">
+                          (escribe 1 letra más para buscar)
+                        </span>
+                      ) : allSubsedes.length > 50 ? (
+                        <span className="ml-1 text-amber-600">
+                          (mostrando {displaySubsedes.length} de {allSubsedes.length})
+                        </span>
+                      ) : null}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const visibleIds = displaySubsedes.map(s => s.id);
+                        const allVisibleSelected = visibleIds.every(id => formData.subsedeAccessIds?.includes(id));
+                        
+                        if (allVisibleSelected) {
+                          // Deseleccionar los visibles
+                          const newSelection = formData.subsedeAccessIds?.filter(id => !visibleIds.includes(id)) || [];
+                          handleChange('subsedeAccessIds', newSelection);
+                        } else {
+                          // Seleccionar los visibles
+                          const currentSelection = formData.subsedeAccessIds || [];
+                          const newSelection = [...new Set([...currentSelection, ...visibleIds])];
+                          handleChange('subsedeAccessIds', newSelection);
+                        }
+                      }}
+                      className="h-7 text-xs"
+                    >
+                      {displaySubsedes.every(s => formData.subsedeAccessIds?.includes(s.id)) 
+                        ? 'Deseleccionar visibles' 
+                        : 'Seleccionar visibles'}
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Mensaje cuando hay muchos municipios sin buscar */}
+                {(!debouncedSubsedeSearch || debouncedSubsedeSearch.length < 2) && allSubsedes.length > 50 && (
+                  <div className="px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg mb-3">
+                    <p className="text-xs text-blue-700">
+                      💡 <strong>{allSubsedes.length} municipios disponibles.</strong> Escribe al menos 2 letras en el buscador para encontrar municipios específicos.
+                    </p>
+                  </div>
+                )}
+
+                {/* Lista de checkboxes con aceleración GPU */}
+                {displaySubsedes.length > 0 ? (
+                  <div 
+                    className="grid grid-cols-2 gap-3 p-4 neomorph-flat rounded-lg max-h-80 overflow-y-auto custom-scrollbar"
+                    style={{ 
+                      willChange: 'transform',
+                      transform: 'translate3d(0, 0, 0)',
+                      backfaceVisibility: 'hidden',
+                      WebkitFontSmoothing: 'antialiased'
+                    }}
+                  >
+                    {displaySubsedes.map((subsede) => (
+                      <label
+                        key={subsede.id}
+                        className="flex items-center gap-2 cursor-pointer hover:bg-blue-50 p-2 rounded transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.subsedeAccessIds?.includes(subsede.id)}
+                          onChange={() => toggleSubsedeAccess(subsede.id)}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0"
+                        />
+                        <span className="text-sm text-gray-700">{subsede.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : debouncedSubsedeSearch && debouncedSubsedeSearch.length >= 2 ? (
+                  <div className="p-4 neomorph-flat rounded-lg text-center">
+                    <p className="text-sm text-gray-500">No se encontraron municipios con "{subsedeSearchTerm}"</p>
+                  </div>
+                ) : (
+                  <div className="p-4 neomorph-flat rounded-lg text-center">
+                    <p className="text-sm text-gray-500">Cargando municipios...</p>
+                  </div>
+                )}
+              </>
             ) : (
               <p className="text-sm text-gray-500 p-4 neomorph-flat rounded-lg">
                 No hay municipios disponibles para el estado seleccionado
