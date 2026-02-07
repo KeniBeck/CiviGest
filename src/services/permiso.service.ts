@@ -4,7 +4,8 @@ import type {
   Permiso, 
   CreatePermiso, 
   UpdatePermiso, 
-  GetPermisosParams 
+  GetPermisosParams, 
+  GetPermisosComprobantesParams
 } from '@/types/permiso.type';
 
 class PermisoService {
@@ -17,6 +18,14 @@ class PermisoService {
   async getAll(params?: GetPermisosParams) {
     const response = await api.get<PaginatedResponse<Permiso>>(
       `${this.baseUrl}`,
+      { params }
+    );
+    return response;
+  }
+
+  async getComprobantes(params: GetPermisosComprobantesParams) {
+    const response = await api.get<PaginatedResponse<Permiso>>(
+      `${this.baseUrl}/comprobantes`,
       { params }
     );
     return response;
