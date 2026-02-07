@@ -22,7 +22,7 @@ interface PagoPermisoModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   permiso: Permiso | null;
-  onSuccess?: () => void;
+  onSuccess?: (pagoCreado: any) => void;
 }
 
 export const PagoPermisoModal = ({
@@ -107,10 +107,10 @@ export const PagoPermisoModal = ({
     };
 
     createPago(dataToSubmit, {
-      onSuccess: () => {
+      onSuccess: (response) => {
         notify.success('Pago Registrado', 'El pago se ha registrado correctamente');
         onOpenChange(false);
-        onSuccess?.();
+        onSuccess?.(response.data);
       },
       onError: (error: any) => {
         notify.apiError(error);

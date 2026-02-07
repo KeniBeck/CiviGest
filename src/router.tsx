@@ -17,11 +17,17 @@ import { MultasPage } from "./pages/multas/MultasPage";
 import { ConfiguracionPage } from "./pages/configuracion/ConfiguracionPage";
 import RolePage from "./pages/role/RolePage";
 import PermissionsPage from "./pages/permission/PermissionsPage";
+import ComprobantePublico from "./pages/comprobante/ComprobantePublico";
 
 export const router = createBrowserRouter([
   {
     path: ROUTES.LOGIN,
     element: <LoginPage />,
+  },
+  // Ruta pública para comprobantes
+  {
+    path: "/comprobante-permisos",
+    element: <ComprobantePublico />,
   },
   {
     element: <ProtectedRoute />,

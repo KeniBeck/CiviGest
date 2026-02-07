@@ -88,7 +88,6 @@ export interface UpdatePagoPermisoDto {
 export interface CreateReembolsoDto {
   pagoOriginalId: number;
   motivoReembolso?: string;
-  autorizadoPor?: number;
 }
 
 export interface FilterPagosPermisosDto {

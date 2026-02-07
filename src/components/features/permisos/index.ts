@@ -1,0 +1,1 @@
+export { ComprobantePublicoModal } from './ComprobantePublicoModal';

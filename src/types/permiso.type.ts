@@ -140,3 +140,10 @@ export interface GetPermisosParams {
   estatus?: 'SOLICITADO' | 'EN_REVISION' | 'APROBADO' | 'RECHAZADO' | 'VENCIDO' | 'CANCELADO';
   tipoPermisoId?: number;
 }
+
+export interface GetPermisosComprobantesParams {
+  page?: number;
+  limit?: number;
+  documentoCiudadano: string;
+  pagoId?: number;
+}

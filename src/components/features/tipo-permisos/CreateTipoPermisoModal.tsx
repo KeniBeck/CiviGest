@@ -241,6 +241,8 @@ export const CreateTipoPermisoModal = ({ open, onClose }: CreateTipoPermisoModal
                         <option value="date">Fecha</option>
                         <option value="email">Email</option>
                         <option value="tel">Teléfono</option>
+                        <option value="image">Imagen</option>
+                        <option value="pdf">PDF</option>
                       </select>
                     </div>
                     <div className="flex items-center gap-2">

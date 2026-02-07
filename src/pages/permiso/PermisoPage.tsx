@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   usePermisos,
   usePermiso,
@@ -17,12 +18,14 @@ import { DataTable } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, CheckCircle, XCircle, Eye, QrCode, Edit, DollarSign } from 'lucide-react';
+import { Loader2, Plus, CheckCircle, XCircle, Eye, QrCode, Edit, DollarSign, RefreshCw } from 'lucide-react';
 import type { Permiso } from '@/types/permiso.type';
 import type { PagoPermiso } from '@/types/pago-permisos.type';
+import { ReembolsoModal } from '@/components/features/permisos/ReembolsoModal';
 
 export const PermisoPage = () => {
   const notify = useNotification();
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [search, setSearch] = useState('');
@@ -33,6 +36,7 @@ export const PermisoPage = () => {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
   const [isComprobanteModalOpen, setIsComprobanteModalOpen] = useState(false);
+  const [isReembolsoModalOpen, setIsReembolsoModalOpen] = useState(false);
   const [selectedPermiso, setSelectedPermiso] = useState<Permiso | null>(null);
   const [selectedPago, setSelectedPago] = useState<PagoPermiso | null>(null);
   
@@ -352,6 +356,7 @@ export const PermisoPage = () => {
               
               {/* ✅ Verificar si ya tiene pago PAGADO */}
               {tienePagoPagado(permiso) ? (
+                <>
                 <Button 
                   size="sm" 
                   variant="outline"
@@ -384,6 +389,39 @@ export const PermisoPage = () => {
                   <Eye className="h-4 w-4 mr-1" />
                   <span className="text-xs">Comprobante</span>
                 </Button>
+                
+                {/* Botón de Reembolso */}
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => {
+                    const pago = getPagoPagado(permiso);
+                    if (pago) {
+                      const pagoCompleto = {
+                        ...pago,
+                        permisoId: permiso.id,
+                        permiso: permiso,
+                        usuarioId: null,
+                        sedeId: permiso.sedeId,
+                        subsedeId: permiso.subsedeId,
+                        costoBase: permiso.costo,
+                        descuento: "0",
+                        isActive: true,
+                        deletedAt: null,
+                        createdAt: pago.fechaPago,
+                        updatedAt: pago.fechaPago,
+                        createdBy: null
+                      };
+                      setSelectedPago(pagoCompleto as any);
+                      setIsReembolsoModalOpen(true);
+                    }
+                  }}
+                  className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                  title="Reembolsar"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+                </>
               ) : (
                 <Button 
                   size="sm" 
@@ -592,8 +630,10 @@ export const PermisoPage = () => {
         open={isPagoModalOpen}
         onOpenChange={closePagoModal}
         permiso={selectedPermiso}
-        onSuccess={() => {
-          // Refrescar datos si es necesario
+        onSuccess={(pagoCreado) => {
+          // Abrir modal de comprobante con los datos del pago creado
+          setSelectedPago(pagoCreado);
+          setIsComprobanteModalOpen(true);
         }}
       />
 
@@ -602,6 +642,17 @@ export const PermisoPage = () => {
         open={isComprobanteModalOpen}
         onOpenChange={closeComprobanteModal}
         pago={selectedPago}
+      />
+
+      {/* Modal de Reembolso */}
+      <ReembolsoModal
+        open={isReembolsoModalOpen}
+        onOpenChange={setIsReembolsoModalOpen}
+        pago={selectedPago}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['permisos'] });
+          setIsReembolsoModalOpen(false);
+        }}
       />
     </div>
   );

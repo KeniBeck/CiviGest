@@ -1,0 +1,61 @@
+/* Animaciones para la página de comprobantes */
+
+/* Forzar scroll para esta página */
+body:has([data-comprobante-page]) {
+  overflow: auto !important;
+  height: auto !important;
+}
+
+html:has([data-comprobante-page]) {
+  overflow: auto !important;
+  height: auto !important;
+}
+
+#root:has([data-comprobante-page]) {
+  overflow: auto !important;
+  height: auto !important;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.6s ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out forwards;
+  opacity: 0;
+}

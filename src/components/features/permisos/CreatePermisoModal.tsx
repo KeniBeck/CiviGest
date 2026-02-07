@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import type { CreatePermiso } from '@/types/permiso.type';
+import { documentosService } from '@/services/documento.service';
+import { imagenesService } from '@/services/imagenes.service';
 
 interface CreatePermisoModalProps {
   open: boolean;
@@ -45,6 +47,24 @@ export const CreatePermisoModal = ({ open, onClose, onPermisoCreado }: CreatePer
   const [camposAdicionales, setCamposAdicionales] = useState<Record<string, any>>({});
   const [aprobarInmediatamente, setAprobarInmediatamente] = useState(true); // ✅ Por defecto TRUE
   const [registrarPago, setRegistrarPago] = useState(true); // ✅ Por defecto TRUE
+  
+  // Estado para archivos pendientes de subir (Files en memoria)
+  const [archivosPendientes, setArchivosPendientes] = useState<{
+    pdfs: Record<string, File>; // fieldName -> File
+    imagenes: Record<string, File>; // fieldName -> File
+  }>({
+    pdfs: {},
+    imagenes: {},
+  });
+  
+  // Estado para archivos ya subidos (para rollback si hay error)
+  const [archivosSubidos, setArchivosSubidos] = useState<{
+    pdfs: string[]; // nombres de archivos PDF subidos
+    imagenes: string[]; // nombres de archivos de imagen subidos
+  }>({
+    pdfs: [],
+    imagenes: [],
+  });
 
   // Obtener el tipo de permiso seleccionado
   const tipoPermisoSeleccionado = tiposPermisoData?.items.find(
@@ -61,50 +81,137 @@ export const CreatePermisoModal = ({ open, onClose, onPermisoCreado }: CreatePer
     }
   }, [tipoPermisoSeleccionado]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const dataToSubmit = {
-      ...formData,
-      camposAdicionales,
-    };
+    try {
+      // 🔵 PASO 1: Subir todos los archivos pendientes PRIMERO
+      const camposAdicionalesConArchivos = { ...camposAdicionales };
+      const archivosSubidosTemp: { pdfs: string[]; imagenes: string[] } = {
+        pdfs: [],
+        imagenes: [],
+      };
 
-    createPermiso(dataToSubmit, {
-      onSuccess: (permisoCreado) => {
-        notify.success('Permiso Creado', 'El permiso se ha creado correctamente');
-        
-        // Si se marcó "Aprobar inmediatamente", aprobar el permiso
-        if (aprobarInmediatamente && permisoCreado) {
-          aprobarPermiso(
-            { id: permisoCreado.id, observaciones: 'Aprobado automáticamente al crear' },
-            {
-              onSuccess: () => {
-                notify.success('Permiso Aprobado', 'El permiso ha sido aprobado automáticamente');
-                
-                // Si también se marcó "Registrar pago", abrir modal de pago
-                if (registrarPago && onPermisoCreado) {
-                  onPermisoCreado(permisoCreado.id, true);
-                }
-                
-                onClose();
-                resetForm();
-              },
-              onError: (error) => {
-                notify.apiError(error);
-                onClose();
-                resetForm();
-              },
-            }
-          );
-        } else {
-          onClose();
-          resetForm();
+      // Subir PDFs
+      for (const [fieldName, file] of Object.entries(archivosPendientes.pdfs)) {
+        try {
+          const response = await documentosService.uploadDocumento({ file });
+          const filename = documentosService.extractFilename(response.data.rutaArchivo);
+          camposAdicionalesConArchivos[fieldName] = filename;
+          archivosSubidosTemp.pdfs.push(filename);
+          console.log(`✅ PDF subido: ${filename}`);
+        } catch (error) {
+          console.error(`❌ Error al subir PDF ${fieldName}:`, error);
+          // Si falla alguna subida, hacer rollback y abortar
+          await rollbackArchivosSubidos(archivosSubidosTemp);
+          notify.error('Error al subir archivos', 'No se pudo subir uno o más archivos PDF');
+          return;
         }
-      },
-      onError: (error) => {
-        notify.apiError(error);
-      },
-    });
+      }
+
+      // Subir imágenes
+      for (const [fieldName, file] of Object.entries(archivosPendientes.imagenes)) {
+        try {
+          const response = await imagenesService.uploadImage({
+            file,
+            id: 999999, // ID temporal
+            type: 'permisos',
+          });
+          const filename = response.data.data.filename;
+          camposAdicionalesConArchivos[fieldName] = filename;
+          archivosSubidosTemp.imagenes.push(filename);
+          console.log(`✅ Imagen subida: ${filename}`);
+        } catch (error) {
+          console.error(`❌ Error al subir imagen ${fieldName}:`, error);
+          // Si falla alguna subida, hacer rollback y abortar
+          await rollbackArchivosSubidos(archivosSubidosTemp);
+          notify.error('Error al subir archivos', 'No se pudo subir una o más imágenes');
+          return;
+        }
+      }
+
+      // Guardar archivos subidos para posible rollback
+      setArchivosSubidos(archivosSubidosTemp);
+
+      // 🔵 PASO 2: Crear el permiso con los filenames en camposAdicionales
+      const dataToSubmit = {
+        ...formData,
+        camposAdicionales: camposAdicionalesConArchivos,
+      };
+
+      createPermiso(dataToSubmit, {
+        onSuccess: (permisoCreado) => {
+          notify.success('Permiso Creado', 'El permiso se ha creado correctamente');
+          
+          // Si se marcó "Aprobar inmediatamente", aprobar el permiso
+          if (aprobarInmediatamente && permisoCreado) {
+            aprobarPermiso(
+              { id: permisoCreado.id, observaciones: 'Aprobado automáticamente al crear' },
+              {
+                onSuccess: () => {
+                  notify.success('Permiso Aprobado', 'El permiso ha sido aprobado automáticamente');
+                  
+                  // Si también se marcó "Registrar pago", abrir modal de pago
+                  if (registrarPago && onPermisoCreado) {
+                    onPermisoCreado(permisoCreado.id, true);
+                  }
+                  
+                  onClose();
+                  resetForm();
+                },
+                onError: (error) => {
+                  notify.apiError(error);
+                  onClose();
+                  resetForm();
+                },
+              }
+            );
+          } else {
+            onClose();
+            resetForm();
+          }
+        },
+        onError: (error) => {
+          notify.apiError(error);
+          
+          // ❌ ROLLBACK: Eliminar archivos subidos si hay error al crear el permiso
+          rollbackArchivosSubidos(archivosSubidosTemp);
+        },
+      });
+    } catch (error) {
+      console.error('Error en handleSubmit:', error);
+      notify.error('Error', 'Ocurrió un error inesperado');
+    }
+  };
+
+  /**
+   * Eliminar todos los archivos subidos en caso de error
+   */
+  const rollbackArchivosSubidos = async (archivos?: { pdfs: string[]; imagenes: string[] }) => {
+    const archivosAEliminar = archivos || archivosSubidos;
+    
+    // Eliminar PDFs
+    for (const filename of archivosAEliminar.pdfs) {
+      try {
+        await documentosService.deleteDocumento({ filename });
+        console.log(`✅ PDF eliminado: ${filename}`);
+      } catch (error) {
+        console.error(`❌ Error al eliminar PDF ${filename}:`, error);
+      }
+    }
+
+    // Eliminar imágenes
+    for (const filename of archivosAEliminar.imagenes) {
+      try {
+        await imagenesService.deleteImage({ type: 'permisos', filename });
+        console.log(`✅ Imagen eliminada: ${filename}`);
+      } catch (error) {
+        console.error(`❌ Error al eliminar imagen ${filename}:`, error);
+      }
+    }
+
+    // Limpiar estado
+    setArchivosSubidos({ pdfs: [], imagenes: [] });
   };
 
   const resetForm = () => {
@@ -121,8 +228,10 @@ export const CreatePermisoModal = ({ open, onClose, onPermisoCreado }: CreatePer
       descripcion: '',
     });
     setCamposAdicionales({});
-    setAprobarInmediatamente(false);
-    setRegistrarPago(false);
+    setAprobarInmediatamente(true);
+    setRegistrarPago(true);
+    setArchivosPendientes({ pdfs: {}, imagenes: {} });
+    setArchivosSubidos({ pdfs: [], imagenes: [] });
   };
 
   const handleChange = (field: keyof CreatePermiso, value: string | number) => {
@@ -134,6 +243,70 @@ export const CreatePermisoModal = ({ open, onClose, onPermisoCreado }: CreatePer
       ...prev,
       [fieldName]: value,
     }));
+  };
+
+  /**
+   * Manejar cambio de campo PDF
+   * Solo guarda el File en memoria, NO lo sube inmediatamente
+   */
+  const handlePdfChange = (fieldName: string, file: File | null) => {
+    if (file) {
+      // Guardar File en memoria para subir después
+      setArchivosPendientes((prev) => ({
+        ...prev,
+        pdfs: { ...prev.pdfs, [fieldName]: file },
+      }));
+      
+      // Marcar que hay un archivo pendiente
+      setCamposAdicionales((prev) => ({
+        ...prev,
+        [fieldName]: '__PENDING__',
+      }));
+    } else {
+      // Remover archivo pendiente
+      setArchivosPendientes((prev) => {
+        const newPdfs = { ...prev.pdfs };
+        delete newPdfs[fieldName];
+        return { ...prev, pdfs: newPdfs };
+      });
+      
+      setCamposAdicionales((prev) => ({
+        ...prev,
+        [fieldName]: null,
+      }));
+    }
+  };
+
+  /**
+   * Manejar cambio de campo de imagen
+   * Solo guarda el File en memoria, NO lo sube inmediatamente
+   */
+  const handleImageChange = (fieldName: string, file: File | null) => {
+    if (file) {
+      // Guardar File en memoria para subir después
+      setArchivosPendientes((prev) => ({
+        ...prev,
+        imagenes: { ...prev.imagenes, [fieldName]: file },
+      }));
+      
+      // Marcar que hay un archivo pendiente
+      setCamposAdicionales((prev) => ({
+        ...prev,
+        [fieldName]: '__PENDING__',
+      }));
+    } else {
+      // Remover archivo pendiente
+      setArchivosPendientes((prev) => {
+        const newImagenes = { ...prev.imagenes };
+        delete newImagenes[fieldName];
+        return { ...prev, imagenes: newImagenes };
+      });
+      
+      setCamposAdicionales((prev) => ({
+        ...prev,
+        [fieldName]: null,
+      }));
+    }
   };
 
   return (
@@ -286,22 +459,91 @@ export const CreatePermisoModal = ({ open, onClose, onPermisoCreado }: CreatePer
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-700">Campos Adicionales</h3>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {tipoPermisoSeleccionado.camposPersonalizados.fields.map((field, index) => (
-                        <div key={index}>
-                          <Label htmlFor={`campo_${field.name}`}>
-                            {field.name} {field.required && '*'}
-                          </Label>
-                          <Input
-                            id={`campo_${field.name}`}
-                            type={field.type}
-                            value={camposAdicionales[field.name] || ''}
-                            onChange={(e) => handleCampoAdicionalChange(field.name, e.target.value)}
-                            required={field.required}
-                            placeholder={`Ingrese ${field.name.toLowerCase()}`}
-                          />
-                        </div>
-                      ))}
+                    <div className="grid grid-cols-1 gap-4">
+                      {tipoPermisoSeleccionado.camposPersonalizados.fields.map((field, index) => {
+                        // Campo tipo PDF
+                        if (field.type === 'pdf') {
+                          return (
+                            <div key={index} className="space-y-2">
+                              <Label htmlFor={`campo_${field.name}`}>
+                                {field.name} {field.required && <span className="text-destructive">*</span>}
+                              </Label>
+                              <Input
+                                id={`campo_${field.name}`}
+                                type="file"
+                                accept=".pdf,application/pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  handlePdfChange(field.name, file || null);
+                                }}
+                                required={field.required}
+                              />
+                              {archivosPendientes.pdfs[field.name] && (
+                                <p className="text-sm text-green-600">
+                                  ✓ {archivosPendientes.pdfs[field.name].name} seleccionado
+                                </p>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                Suba un archivo PDF (máx 10 MB)
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        // Campo tipo imagen
+                        if (field.type === 'image') {
+                          return (
+                            <div key={index} className="space-y-2">
+                              <Label htmlFor={`campo_${field.name}`}>
+                                {field.name} {field.required && <span className="text-destructive">*</span>}
+                              </Label>
+                              <Input
+                                id={`campo_${field.name}`}
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  handleImageChange(field.name, file || null);
+                                }}
+                                required={field.required}
+                              />
+                              {archivosPendientes.imagenes[field.name] && (
+                                <div className="space-y-2">
+                                  <p className="text-sm text-green-600">
+                                    ✓ {archivosPendientes.imagenes[field.name].name} seleccionada
+                                  </p>
+                                  {/* Preview de la imagen */}
+                                  <img
+                                    src={URL.createObjectURL(archivosPendientes.imagenes[field.name])}
+                                    alt="Preview"
+                                    className="max-w-xs h-auto rounded border"
+                                  />
+                                </div>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                Suba una imagen (JPG, PNG, GIF)
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        // Otros tipos de campos (text, number, date, etc.)
+                        return (
+                          <div key={index}>
+                            <Label htmlFor={`campo_${field.name}`}>
+                              {field.name} {field.required && '*'}
+                            </Label>
+                            <Input
+                              id={`campo_${field.name}`}
+                              type={field.type}
+                              value={camposAdicionales[field.name] || ''}
+                              onChange={(e) => handleCampoAdicionalChange(field.name, e.target.value)}
+                              required={field.required}
+                              placeholder={`Ingrese ${field.name.toLowerCase()}`}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
