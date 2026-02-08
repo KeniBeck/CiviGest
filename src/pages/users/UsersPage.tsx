@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Edit, Trash, UserPlus, Power } from "lucide-react";
+import { Edit, Trash, UserPlus, Power, KeyRound } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { Filters } from "@/components/common/Filters";
 import { DataTable } from "@/components/common/DataTable";
@@ -13,6 +13,7 @@ import { sedeService } from "@/services/sede.service";
 import { subsedeService } from "@/services/subsede.service";
 import { CreateUserModal } from "@/components/features/users/CreateUserModal";
 import { EditUserModal } from "@/components/features/users/EditUserModal";
+import { ChangePasswordModal } from "@/components/features/users/ChangePasswordModal";
 import type { User } from "@/types/user.types";
 import type { Sede } from "@/types/sede.types";
 import type { Subsede } from "@/types/subsede.types";
@@ -27,6 +28,13 @@ const UsersPage = () => {
   // ✅ Estado del modal de edición
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+
+  // ✅ Estado del modal de cambio de contraseña
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+  const [selectedUserForPassword, setSelectedUserForPassword] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
 
   // ✅ Estado del diálogo de confirmación
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -124,6 +132,15 @@ const UsersPage = () => {
   const handleEdit = (user: User) => {
     setSelectedUserId(user.id);
     setIsEditModalOpen(true);
+  };
+
+  // ✅ Abrir modal de cambio de contraseña
+  const handleChangePassword = (user: User) => {
+    setSelectedUserForPassword({
+      id: user.id,
+      name: `${user.firstName} ${user.lastName}`,
+    });
+    setIsChangePasswordModalOpen(true);
   };
 
   // ✅ Helper para colores de roles
@@ -382,6 +399,15 @@ const UsersPage = () => {
             <Button
               size="sm"
               variant="outline"
+              onClick={() => handleChangePassword(user)}
+              title="Cambiar contraseña"
+              className="hover:bg-purple-50 hover:text-purple-600"
+            >
+              <KeyRound className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => handleToggle(user)}
               disabled={isToggling || isDeleting}
               title={user.isActive ? 'Desactivar usuario' : 'Activar usuario'}
@@ -418,6 +444,14 @@ const UsersPage = () => {
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
         userId={selectedUserId}
+      />
+
+      {/* ✅ Modal de cambio de contraseña */}
+      <ChangePasswordModal
+        open={isChangePasswordModalOpen}
+        onOpenChange={setIsChangePasswordModalOpen}
+        userId={selectedUserForPassword?.id || null}
+        userName={selectedUserForPassword?.name || ''}
       />
 
       {/* ✅ Diálogo de confirmación de eliminación */}

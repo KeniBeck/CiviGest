@@ -161,9 +161,6 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
 
     if (!formData.email) newErrors.email = 'El email es requerido';
     if (!formData.username) newErrors.username = 'El usuario es requerido';
-    if (formData.password && formData.password.length < 6) {
-      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
-    }
     if (!formData.firstName) newErrors.firstName = 'El nombre es requerido';
     if (!formData.lastName) newErrors.lastName = 'El apellido es requerido';
     if (!formData.phoneNumber) newErrors.phoneNumber = 'El teléfono es requerido';
@@ -187,11 +184,6 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
 
     // Limpiar datos antes de enviar
     const dataToSubmit = { ...formData };
-    
-    // No enviar password si está vacío
-    if (!dataToSubmit.password) {
-      delete dataToSubmit.password;
-    }
     
     // Si es MUNICIPAL, NO enviar subsedeAccessIds (solo usar subsedeId)
     if (userLevel === 'MUNICIPAL') {
@@ -291,7 +283,7 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-200">
           <DialogTitle>Editar Usuario</DialogTitle>
           <DialogDescription>
-            Modifica los datos del usuario. Deja la contraseña en blanco si no deseas cambiarla.
+            Modifica los datos del usuario.
           </DialogDescription>
         </DialogHeader>
 
@@ -330,20 +322,6 @@ export const EditUserModal = ({ open, onOpenChange, userId }: EditUserModalProps
                 className={errors.username ? 'border-red-500' : ''}
               />
               {errors.username && <p className="text-xs text-red-600">{errors.username}</p>}
-            </div>
-
-            {/* Password (opcional en edición) */}
-            <div className="space-y-2">
-              <Label htmlFor="password">Nueva Contraseña (opcional)</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Dejar en blanco para mantener actual"
-                value={formData.password || ''}
-                onChange={(e) => handleChange('password', e.target.value)}
-                className={errors.password ? 'border-red-500' : ''}
-              />
-              {errors.password && <p className="text-xs text-red-600">{errors.password}</p>}
             </div>
 
             {/* Nombre */}
