@@ -4,6 +4,7 @@ import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import UsersPage from "@/pages/users/UsersPage";
 import SedesPage from "@/pages/sedes/SedesPage";
 import SubsedesPage from "@/pages/subsedes/SubsedesPage";
+import ProfilePage from "@/pages/profile/ProfilePage";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { ProtectedRoute } from "@/components/features/auth/ProtectedRoute";
 import { ROUTES } from "@/config/routes";
@@ -42,6 +43,10 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.HOME,
             element: <Navigate to={ROUTES.DASHBOARD} replace />,
+          },
+          {
+            path: ROUTES.PROFILE,
+            element: <ProfilePage />,
           },
           {
             path: "/users",
