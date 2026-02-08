@@ -7,7 +7,9 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2, Plus, Pencil, Trash2, Power } from 'lucide-react';
+import { imagenesService } from '@/services/imagenes.service';
 import type { Agente } from '@/types/agente.type';
 
 export const AgentesPage = () => {
@@ -94,8 +96,34 @@ export const AgentesPage = () => {
   // Columnas de la tabla
   const columns = [
     {
-      header: 'ID',
-      accessor: (agente: Agente) => agente.id,
+      header: 'Foto',
+      accessor: (agente: Agente) => {
+        const initials = `${agente.nombres[0]}${agente.apellidoPaterno[0]}`.toUpperCase();
+        const imageUrl = agente.foto 
+          ? imagenesService.getImageUrl({ type: 'agentes', filename: agente.foto })
+          : undefined;
+        
+        return (
+          <Avatar className="h-10 w-10 shadow-md ring-2 ring-gray-100">
+            {imageUrl && (
+              <AvatarImage 
+                src={imageUrl} 
+                alt={`${agente.nombres} ${agente.apellidoPaterno}`}
+                className="object-cover"
+              />
+            )}
+            <AvatarFallback 
+              className="font-semibold text-sm"
+              style={{
+                backgroundColor: 'var(--color-primary)',
+                color: 'white',
+              }}
+            >
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+        );
+      },
     },
     {
       header: 'Nombre Completo',

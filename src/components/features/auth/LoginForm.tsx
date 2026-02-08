@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useLogin } from '@/hooks/queries/useAuth';
 import { loginSchema } from '@/utils/validators';
 import type { LoginFormData } from '@/utils/validators';
@@ -15,6 +17,7 @@ import {
 
 export function LoginForm() {
   const { mutate: login, isPending, error } = useLogin();
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -76,26 +79,49 @@ export function LoginForm() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div>
-            <FloatingInput
-              id="email"
-              type="email"
-              label="Email"
-              {...register('email')}
-              disabled={isPending}
-            />
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
+              <FloatingInput
+                id="email"
+                type="email"
+                label="Email"
+                className="pl-11"
+                hasLeftIcon={true}
+                {...register('email')}
+                disabled={isPending}
+              />
+            </div>
             {errors.email && (
               <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>
             )}
           </div>
 
           <div>
-            <FloatingInput
-              id="password"
-              type="password"
-              label="Contraseña"
-              {...register('password')}
-              disabled={isPending}
-            />
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
+              <FloatingInput
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                label="Contraseña"
+                className="pl-11 pr-11"
+                hasLeftIcon={true}
+                hasRightIcon={true}
+                {...register('password')}
+                disabled={isPending}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors z-10"
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
             {errors.password && (
               <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
             )}

@@ -102,6 +102,13 @@ export interface CreateUserDto {
   address?: string;
 }
 
-export interface UpdateUserDto extends Partial<Omit<CreateUserDto, 'password'>> {
-  password?: string;
+export interface UpdateUserDto extends Partial<Omit<CreateUserDto, 'password'>> {}
+
+export interface ChangeOwnPasswordDto {
+  oldPassword: string;
+  newPassword: string;
+}
+
+export interface ChangeUserPasswordDto {
+  newPassword: string;
 }

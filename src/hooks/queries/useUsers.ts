@@ -4,6 +4,8 @@ import type {
   GetUsersParams,
   CreateUserDto,
   UpdateUserDto,
+  ChangeOwnPasswordDto,
+  ChangeUserPasswordDto,
 } from '@/types/user.types';
 
 export const userKeys = {
@@ -96,6 +98,26 @@ export const useToggleUserActive = () => {
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: userKeys.lists() });
       queryClient.invalidateQueries({ queryKey: userKeys.detail(id) });
+    },
+  });
+};
+
+// Cambiar propia contraseña
+export const useChangeOwnPassword = () => {
+  return useMutation({
+    mutationFn: async (data: ChangeOwnPasswordDto) => {
+      const response = await userService.changeOwnPassword(data);
+      return response.data;
+    },
+  });
+};
+
+// Cambiar contraseña de otro usuario (admin)
+export const useChangeUserPassword = () => {
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: ChangeUserPasswordDto }) => {
+      const response = await userService.changeUserPassword(id, data);
+      return response.data;
     },
   });
 };
