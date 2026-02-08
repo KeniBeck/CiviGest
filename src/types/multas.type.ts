@@ -60,6 +60,8 @@ export interface GetMultasParams {
     search?: string;
     isActive?: boolean;
     departamentoId?: number;
+    sedeId?: number;
+    subsedeId?: number;
     departamento?: string;
 }
 

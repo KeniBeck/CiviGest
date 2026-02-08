@@ -6,22 +6,32 @@ import {
 } from '@/hooks/queries/useMultas';
 import { useDepartamentos } from '@/hooks/queries/useDepartamento';
 import { useNotification } from '@/hooks/useNotification';
+import { useUserLevel } from '@/hooks/useUserLevel';
 import { CreateMultaModal } from '@/components/features/multas/CreateMultaModal';
 import { EditMultaModal } from '@/components/features/multas/EditMultaModal';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
+import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Loader2, Plus, Edit, Trash2, Power, Receipt } from 'lucide-react';
+import { sedeService } from '@/services/sede.service';
+import { subsedeService } from '@/services/subsede.service';
 import type { Multas } from '@/types/multas.type';
+import type { Sede } from '@/types/sede.types';
+import type { Subsede } from '@/types/subsede.types';
 
 export const MultasPage = () => {
   const notify = useNotification();
+  const { userLevel } = useUserLevel();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState('');
   const [departamentoFilter, setDepartamentoFilter] = useState<number | ''>('');
+  const [sedeFilter, setSedeFilter] = useState<number | ''>('');
+  const [subsedeFilter, setSubsedeFilter] = useState<number | ''>('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedMulta, setSelectedMulta] = useState<Multas | null>(null);
@@ -38,6 +48,8 @@ export const MultasPage = () => {
     limit,
     search: search || undefined,
     departamentoId: departamentoFilter || undefined,
+    sedeId: sedeFilter || undefined,
+    subsedeId: subsedeFilter || undefined,
   });
 
   // ✅ Cargar departamentos para filtro
@@ -128,14 +140,37 @@ export const MultasPage = () => {
         </p>
       ),
     },
-    {
-      header: 'Departamento',
-      accessor: (multa: Multas) => (
-        <div className="text-sm">
-          <p className="text-gray-900">{multa.departamento.nombre}</p>
-        </div>
-      ),
-    },
+    // Columna condicional según nivel de usuario
+    ...(userLevel === 'SUPER_ADMIN' ? [
+      {
+        header: 'Sede / Municipio',
+        accessor: (multa: Multas) => (
+          <div className="text-sm">
+            <p className="text-gray-900 font-medium">{multa.sede.name}</p>
+            <p className="text-gray-500 text-xs">{multa.subsede.name}</p>
+          </div>
+        ),
+      }
+    ] : userLevel === 'ESTATAL' ? [
+      {
+        header: 'Municipio',
+        accessor: (multa: Multas) => (
+          <div className="text-sm">
+            <p className="text-gray-900">{multa.subsede.name}</p>
+            <p className="text-gray-500 text-xs">Código: {multa.subsede.code}</p>
+          </div>
+        ),
+      }
+    ] : [
+      {
+        header: 'Departamento',
+        accessor: (multa: Multas) => (
+          <div className="text-sm">
+            <p className="text-gray-900">{multa.departamento.nombre}</p>
+          </div>
+        ),
+      }
+    ]),
     {
       header: 'Costo',
       accessor: (multa: Multas) => (
@@ -244,23 +279,91 @@ export const MultasPage = () => {
               className="w-full"
             />
           </div>
-          <div>
-            <select
-              value={departamentoFilter}
-              onChange={(e) => {
-                setDepartamentoFilter(e.target.value ? parseInt(e.target.value) : '');
-                setPage(1);
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Todos los departamentos</option>
-              {departamentosData?.data.items.map((depto) => (
-                <option key={depto.id} value={depto.id}>
-                  {depto.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+          
+          {/* Filtro de Sede - Solo para SUPER_ADMIN */}
+          {userLevel === 'SUPER_ADMIN' && (
+            <div>
+              <Label htmlFor="sedeFilter" className="text-sm text-gray-700 mb-1 block">
+                Filtrar por Sede
+              </Label>
+              <SearchableSelect
+                placeholder="Todas las sedes"
+                value={sedeFilter || 0}
+                onChange={(value) => {
+                  setSedeFilter(Number(value) || '');
+                  setSubsedeFilter(''); // Resetear subsede al cambiar sede
+                  setPage(1);
+                }}
+                queryKey={['sedes-filter-multas']}
+                queryFn={async ({ page, search, limit }) => {
+                  const response = await sedeService.getAll({
+                    page,
+                    search,
+                    limit,
+                    isActive: true,
+                  });
+                  return response.data;
+                }}
+                getOptionLabel={(item: Sede) => item.name}
+                getOptionValue={(item: Sede) => item.id}
+              />
+            </div>
+          )}
+
+          {/* Filtro de Subsede - Para SUPER_ADMIN y ESTATAL */}
+          {(userLevel === 'SUPER_ADMIN' || userLevel === 'ESTATAL') && (
+            <div>
+              <Label htmlFor="subsedeFilter" className="text-sm text-gray-700 mb-1 block">
+                Filtrar por Municipio
+              </Label>
+              <SearchableSelect
+                placeholder="Todos los municipios"
+                value={subsedeFilter || 0}
+                onChange={(value) => {
+                  setSubsedeFilter(Number(value) || '');
+                  setPage(1);
+                }}
+                queryKey={sedeFilter ? ['subsedes-filter-multas', sedeFilter] : ['subsedes-filter-multas']}
+                queryFn={async ({ page, search, limit }) => {
+                  const response = await subsedeService.getAll({
+                    page,
+                    search,
+                    limit,
+                    isActive: true,
+                    ...(sedeFilter && { sedeId: sedeFilter }),
+                  });
+                  return response.data;
+                }}
+                getOptionLabel={(item: Subsede) => item.name}
+                getOptionValue={(item: Subsede) => item.id}
+              />
+            </div>
+          )}
+
+          {/* Filtro de Departamento - Para usuarios MUNICIPAL */}
+          {userLevel === 'MUNICIPAL' && (
+            <div>
+              <Label htmlFor="departamentoFilter" className="text-sm text-gray-700 mb-1 block">
+                Filtrar por Departamento
+              </Label>
+              <select
+                id="departamentoFilter"
+                value={departamentoFilter}
+                onChange={(e) => {
+                  setDepartamentoFilter(e.target.value ? parseInt(e.target.value) : '');
+                  setPage(1);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Todos los departamentos</option>
+                {departamentosData?.data.items.map((depto) => (
+                  <option key={depto.id} value={depto.id}>
+                    {depto.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
