@@ -28,6 +28,7 @@ export interface MenuItem {
   icon: LucideIcon;
   path?: string;
   roles?: RoleLevel[]; // Si no se especifica, todos pueden ver
+  permissions?: string[]; // Permisos específicos requeridos (para agentes)
   children?: MenuItem[];
 }
 
@@ -45,25 +46,29 @@ export const navigationMenu: MenuItem[] = [
         label: 'Mi Municipio',
         icon: Building2,
         path: '/configuracion',
-        roles: ['MUNICIPAL', 'SUPER_ADMIN'],
+        roles: ['MUNICIPAL', 'SUPER_ADMIN','ESTATAL'],
+        permissions: ['configuraciones:read'],
       },
       {
         label: 'Estados',
         icon: Map,
         path: '/sedes',
         roles: ['SUPER_ADMIN'],
+        permissions: ['sedes:read'],
       },
       {
         label: 'Municipios',
         icon: MapPin,
         path: '/subsedes',
         roles: ['SUPER_ADMIN', 'ESTATAL'],
+        permissions: ['subsedes:read'],
       },
       {
         label: 'Temas',
         icon: Palette,
         path: '/themes',
         roles: ['SUPER_ADMIN'],
+        permissions: ['themes:read'],
       },
     ],
   },
@@ -76,24 +81,28 @@ export const navigationMenu: MenuItem[] = [
         icon: Receipt,
         path: '/multas',
         roles: ['MUNICIPAL', 'SUPER_ADMIN', 'ESTATAL'],
+        permissions: ['multas:read'],
       },
       {
         label: 'Departamentos',
         icon: Building,
         path: '/departamentos',
         roles: ['MUNICIPAL', 'SUPER_ADMIN', 'ESTATAL'],
+        permissions: ['departamentos:read'],
       },
       {
         label: 'Tipos de Agente',
         icon: UserCog,
         path: '/tipos-agente',
         roles: ['MUNICIPAL', 'SUPER_ADMIN', 'ESTATAL'],
+        permissions: ['tipos-agente:read'],
       },
       {
         label: 'Tipos de Permiso',
         icon: FileText,
         path: '/tipos-permiso',
         roles: ['MUNICIPAL', 'SUPER_ADMIN', 'ESTATAL'],
+        permissions: ['tipos-permiso:read'],
       },
     ],
   },
@@ -106,22 +115,26 @@ export const navigationMenu: MenuItem[] = [
         icon: Users,
         path: '/agentes',
         roles: ['MUNICIPAL', 'SUPER_ADMIN', 'ESTATAL'],
+        permissions: ['agentes:read'],
       },
       {
         label: 'Patrullas',
         icon: Car,
         path: '/patrullas',
         roles: ['MUNICIPAL', 'SUPER_ADMIN', 'ESTATAL'],
+        permissions: ['patrullas:read'],
       },
       {
         label: 'Infracciones',
         icon: AlertTriangle,
         path: '/infracciones',
+        permissions: ['infraccion:read'],
       },
       {
         label: 'Permisos',
         icon: FileCheck,
         path: '/permisos',
+        permissions: ['permisos:read'],
       },
     ],
   },
@@ -134,18 +147,21 @@ export const navigationMenu: MenuItem[] = [
         label: 'Usuarios',
         icon: Users,
         path: '/users',
+        permissions: ['users:read'],
       },
       {
         label: 'Roles',
         icon: ShieldCheck,
         path: '/roles',
         roles: ['SUPER_ADMIN','MUNICIPAL','ESTATAL'],
+        permissions: ['roles:read'],
       },
       {
         label: 'Permisos',
         icon: Key,
         path: '/permissions',
         roles: ['SUPER_ADMIN'],
+        permissions: ['permissions:read'],
       },
     ],
   },

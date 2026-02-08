@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { useLogin } from '@/hooks/queries/useAuth';
-import { loginSchema } from '@/utils/validators';
-import type { LoginFormData } from '@/utils/validators';
+import { Mail, Lock, Eye, EyeOff, Shield, User } from 'lucide-react';
+import { useLogin, useLoginAgente } from '@/hooks/queries/useAuth';
+import { loginSchema, agenteLoginSchema } from '@/utils/validators';
+import type { LoginFormData, AgenteLoginFormData } from '@/utils/validators';
 import { Button } from '@/components/ui/button';
 import { FloatingInput } from '@/components/ui/floating-input';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
@@ -16,19 +18,36 @@ import {
 } from '@/components/ui/card';
 
 export function LoginForm() {
-  const { mutate: login, isPending, error } = useLogin();
+  const [isAgente, setIsAgente] = useState(false);
+  const { mutate: login, isPending: isPendingUser, error: errorUser } = useLogin();
+  const { mutate: loginAgente, isPending: isPendingAgente, error: errorAgente } = useLoginAgente();
   const [showPassword, setShowPassword] = useState(false);
 
+  const isPending = isPendingUser || isPendingAgente;
+  const error = errorUser || errorAgente;
+
   const {
-    register,
-    handleSubmit,
-    formState: { errors },
+    register: registerUser,
+    handleSubmit: handleSubmitUser,
+    formState: { errors: errorsUser },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = (data: LoginFormData) => {
+  const {
+    register: registerAgente,
+    handleSubmit: handleSubmitAgente,
+    formState: { errors: errorsAgente },
+  } = useForm<AgenteLoginFormData>({
+    resolver: zodResolver(agenteLoginSchema),
+  });
+
+  const onSubmitUser = (data: LoginFormData) => {
     login(data);
+  };
+
+  const onSubmitAgente = (data: AgenteLoginFormData) => {
+    loginAgente(data);
   };
 
   return (
@@ -77,36 +96,86 @@ export function LoginForm() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
-              <FloatingInput
-                id="email"
-                type="email"
-                label="Email"
-                className="pl-11"
-                hasLeftIcon={true}
-                {...register('email')}
-                disabled={isPending}
-              />
+        {/* Toggle Agente/Usuario */}
+        <div className="mb-6 flex items-center justify-center gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-200 dark:border-gray-700 dark:from-gray-800 dark:to-gray-900">
+          <Label 
+            htmlFor="agente-mode" 
+            className={`flex items-center gap-2 cursor-pointer transition-colors ${
+              !isAgente ? 'text-primary font-semibold' : 'text-gray-500'
+            }`}
+          >
+            <User className="h-4 w-4" />
+            Usuario
+          </Label>
+          <Switch
+            id="agente-mode"
+            checked={isAgente}
+            onCheckedChange={setIsAgente}
+            disabled={isPending}
+          />
+          <Label 
+            htmlFor="agente-mode" 
+            className={`flex items-center gap-2 cursor-pointer transition-colors ${
+              isAgente ? 'text-primary font-semibold' : 'text-gray-500'
+            }`}
+          >
+            <Shield className="h-4 w-4" />
+            Agente
+          </Label>
+        </div>
+
+        <form onSubmit={isAgente ? handleSubmitAgente(onSubmitAgente) : handleSubmitUser(onSubmitUser)} className="space-y-6">
+          {!isAgente ? (
+            // Formulario de usuario normal
+            <div>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
+                <FloatingInput
+                  id="email"
+                  type="email"
+                  label="Email"
+                  className="pl-11"
+                  hasLeftIcon={true}
+                  {...registerUser('email')}
+                  disabled={isPending}
+                />
+              </div>
+              {errorsUser.email && (
+                <p className="text-sm text-red-500 mt-1">{errorsUser.email.message}</p>
+              )}
             </div>
-            {errors.email && (
-              <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>
-            )}
-          </div>
+          ) : (
+            // Formulario de agente
+            <div>
+              <div className="relative">
+                <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
+                <FloatingInput
+                  id="numPlaca"
+                  type="text"
+                  label="Número de Placa"
+                  className="pl-11 uppercase"
+                  hasLeftIcon={true}
+                  {...registerAgente('numPlaca')}
+                  disabled={isPending}
+                />
+              </div>
+              {errorsAgente.numPlaca && (
+                <p className="text-sm text-red-500 mt-1">{errorsAgente.numPlaca.message}</p>
+              )}
+            </div>
+          )}
 
           <div>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
               <FloatingInput
-                id="password"
+                id={isAgente ? 'contrasena' : 'password'}
                 type={showPassword ? 'text' : 'password'}
                 label="Contraseña"
                 className="pl-11 pr-11"
                 hasLeftIcon={true}
                 hasRightIcon={true}
-                {...register('password')}
+                {...(isAgente ? registerAgente('contrasena') : registerUser('password'))}
                 disabled={isPending}
               />
               <button
@@ -122,8 +191,11 @@ export function LoginForm() {
                 )}
               </button>
             </div>
-            {errors.password && (
-              <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
+            {!isAgente && errorsUser.password && (
+              <p className="text-sm text-red-500 mt-1">{errorsUser.password.message}</p>
+            )}
+            {isAgente && errorsAgente.contrasena && (
+              <p className="text-sm text-red-500 mt-1">{errorsAgente.contrasena.message}</p>
             )}
           </div>
 
@@ -153,7 +225,10 @@ export function LoginForm() {
                 Cargando...
               </span>
             ) : (
-              'Iniciar Sesión'
+              <span className="flex items-center justify-center gap-2">
+                {isAgente && <Shield className="h-5 w-5" />}
+                {isAgente ? 'Ingresar como Agente' : 'Iniciar Sesión'}
+              </span>
             )}
           </Button>
         </form>
