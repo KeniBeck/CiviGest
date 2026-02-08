@@ -477,8 +477,14 @@ export const ConfiguracionPage = () => {
                 type="number"
                 step="0.01"
                 min="0"
-                value={formData.salarioMinimo === 0 ? '' : formData.salarioMinimo}
+                value={formData.salarioMinimo}
                 onChange={(e) => handleChange('salarioMinimo', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                onKeyDown={(e) => {
+                  if (formData.salarioMinimo === 0 && /^[0-9]$/.test(e.key)) {
+                    e.preventDefault();
+                    handleChange('salarioMinimo', parseFloat(e.key));
+                  }
+                }}
                 required
                 placeholder="0.00"
               />
@@ -491,8 +497,14 @@ export const ConfiguracionPage = () => {
                 type="number"
                 step="0.01"
                 min="0"
-                value={formData.uma === 0 ? '' : formData.uma}
+                value={formData.uma}
                 onChange={(e) => handleChange('uma', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                onKeyDown={(e) => {
+                  if (formData.uma === 0 && /^[0-9]$/.test(e.key)) {
+                    e.preventDefault();
+                    handleChange('uma', parseFloat(e.key));
+                  }
+                }}
                 required
                 placeholder="0.00"
               />
@@ -506,8 +518,14 @@ export const ConfiguracionPage = () => {
                 step="0.01"
                 min="0"
                 max="100"
-                value={formData.tasaRecargo === 0 ? '' : formData.tasaRecargo}
+                value={formData.tasaRecargo}
                 onChange={(e) => handleChange('tasaRecargo', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                onKeyDown={(e) => {
+                  if (formData.tasaRecargo === 0 && /^[0-9]$/.test(e.key)) {
+                    e.preventDefault();
+                    handleChange('tasaRecargo', parseFloat(e.key));
+                  }
+                }}
                 required
                 placeholder="0.00"
               />

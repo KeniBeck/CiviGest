@@ -174,7 +174,13 @@ export const EditMultaModal = ({ open, onClose, multa }: EditMultaModalProps) =>
                       step="0.01"
                       min="0"
                       value={formData.costo}
-                      onChange={(e) => handleChange('costo', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => handleChange('costo', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                      onKeyDown={(e) => {
+                        if (formData.costo === 0 && /^[0-9]$/.test(e.key)) {
+                          e.preventDefault();
+                          handleChange('costo', parseFloat(e.key));
+                        }
+                      }}
                       required
                       placeholder="0.00"
                     />
@@ -188,7 +194,13 @@ export const EditMultaModal = ({ open, onClose, multa }: EditMultaModalProps) =>
                       step="0.01"
                       min="0"
                       value={formData.numUMAs}
-                      onChange={(e) => handleChange('numUMAs', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => handleChange('numUMAs', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                      onKeyDown={(e) => {
+                        if (formData.numUMAs === 0 && /^[0-9]$/.test(e.key)) {
+                          e.preventDefault();
+                          handleChange('numUMAs', parseFloat(e.key));
+                        }
+                      }}
                       placeholder="0.00"
                     />
                   </div>
@@ -201,7 +213,13 @@ export const EditMultaModal = ({ open, onClose, multa }: EditMultaModalProps) =>
                       step="0.01"
                       min="0"
                       value={formData.numSalarios}
-                      onChange={(e) => handleChange('numSalarios', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => handleChange('numSalarios', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                      onKeyDown={(e) => {
+                        if (formData.numSalarios === 0 && /^[0-9]$/.test(e.key)) {
+                          e.preventDefault();
+                          handleChange('numSalarios', parseFloat(e.key));
+                        }
+                      }}
                       placeholder="0.00"
                     />
                   </div>
@@ -215,7 +233,13 @@ export const EditMultaModal = ({ open, onClose, multa }: EditMultaModalProps) =>
                       min="0"
                       max="100"
                       value={formData.recargo}
-                      onChange={(e) => handleChange('recargo', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => handleChange('recargo', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                      onKeyDown={(e) => {
+                        if (formData.recargo === 0 && /^[0-9]$/.test(e.key)) {
+                          e.preventDefault();
+                          handleChange('recargo', parseFloat(e.key));
+                        }
+                      }}
                       placeholder="0.00"
                     />
                   </div>
