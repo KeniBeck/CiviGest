@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useCreateAgente } from '@/hooks/queries/useAgentes';
 import { useNotification } from '@/hooks/useNotification';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { tipoAgenteService } from '@/services/tipo-agente.service';
 import { departamentoService } from '@/services/departamento.service';
 import { patrullaService } from '@/services/patrulla.service';
+import { imagenesService } from '@/services/imagenes.service';
 import { CreateTipoAgenteModal } from '../tipo-agentes/CreateTipoAgenteModal';
 import { CreateDepartamentoModal } from '../departamentos/CreateDepartamentoModal';
 import { CreatePatrullaModal } from '../patrullas/CreatePatrullaModal';
@@ -18,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Eye, EyeOff, Plus } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Plus, Upload, X } from 'lucide-react';
 import type { CreateAgente } from '@/types/agente.type';
 import type { TipoAgente } from '@/types/tipo-agente.type';
 import type { Departamento } from '@/types/departamento.type';
@@ -33,6 +34,10 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
   const notify = useNotification();
   const { mutate: createAgente, isPending } = useCreateAgente();
   const [showPassword, setShowPassword] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Estados para modales de creación rápida
   const [showCreateTipoAgente, setShowCreateTipoAgente] = useState(false);
@@ -55,33 +60,111 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
     patrullaId: 0,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    createAgente(formData, {
-      onSuccess: () => {
-        notify.success('Agente Creado', 'El agente se ha creado correctamente');
-        onClose();
-        setFormData({
-          nombres: '',
-          apellidoPaterno: '',
-          apellidoMaterno: '',
-          tipoId: 0,
-          cargo: '',
-          numPlantilla: '',
-          numEmpleadoBiometrico: '',
-          foto: '',
-          whatsapp: '',
-          correo: '',
-          contrasena: '',
-          departamentoId: 0,
-          patrullaId: 0,
+    setIsUploadingImage(true);
+    let uploadedFilename: string | null = null;
+
+    try {
+      // 1. Subir imagen primero si hay archivo seleccionado
+      if (selectedFile) {
+        const uploadResponse = await imagenesService.uploadImage({
+          file: selectedFile,
+          type: 'agentes',
+          id: 1, // ID temporal, puede ser cualquier valor
         });
-      },
-      onError: (error) => {
-        notify.apiError(error);
-      },
-    });
+
+        // Acceder correctamente a la estructura de respuesta
+        uploadedFilename = uploadResponse.data.data.filename;
+        
+        // Actualizar formData con el filename
+        if (uploadedFilename) {
+          formData.foto = uploadedFilename;
+        }
+      }
+
+      // 2. Crear el agente
+      createAgente(formData, {
+        onSuccess: () => {
+          notify.success('Agente Creado', 'El agente se ha creado correctamente');
+          
+          // Reset form
+          setFormData({
+            nombres: '',
+            apellidoPaterno: '',
+            apellidoMaterno: '',
+            tipoId: 0,
+            cargo: '',
+            numPlantilla: '',
+            numEmpleadoBiometrico: '',
+            foto: '',
+            whatsapp: '',
+            correo: '',
+            contrasena: '',
+            departamentoId: 0,
+            patrullaId: 0,
+          });
+          setSelectedFile(null);
+          setPreviewUrl('');
+          setIsUploadingImage(false);
+          onClose();
+        },
+        onError: async (error) => {
+          // Si falla la creación del agente, eliminar la imagen subida
+          if (uploadedFilename) {
+            try {
+              await imagenesService.deleteImage({
+                type: 'agentes',
+                filename: uploadedFilename,
+              });
+            } catch (deleteError) {
+              console.error('Error al eliminar imagen:', deleteError);
+            }
+          }
+          
+          setIsUploadingImage(false);
+          notify.apiError(error);
+        },
+      });
+    } catch (error: any) {
+      setIsUploadingImage(false);
+      notify.error('Error al Subir Imagen', error.message || 'No se pudo subir la imagen');
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validar tipo de archivo
+      if (!file.type.startsWith('image/')) {
+        notify.error('Archivo Inválido', 'Por favor seleccione una imagen válida');
+        return;
+      }
+
+      // Validar tamaño (máximo 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        notify.error('Archivo Muy Grande', 'La imagen no debe superar los 5MB');
+        return;
+      }
+
+      setSelectedFile(file);
+      
+      // Crear preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    setPreviewUrl('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleChange = (field: keyof CreateAgente, value: string | number) => {
@@ -332,14 +415,61 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
                     </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="foto">URL de Foto (Opcional)</Label>
-                    <Input
-                      id="foto"
-                      value={formData.foto}
-                      onChange={(e) => handleChange('foto', e.target.value)}
-                      placeholder="https://ejemplo.com/foto.jpg"
-                    />
+                  {/* Foto del Agente */}
+                  <div className="md:col-span-2">
+                    <Label>Foto del Agente (Opcional)</Label>
+                    <div className="mt-2">
+                      {!previewUrl ? (
+                        <div 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="relative cursor-pointer group"
+                        >
+                          <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)] hover:border-blue-400 hover:bg-blue-50/30 transition-all duration-200">
+                            <div className="p-4 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full shadow-inner mb-3">
+                              <Upload className="h-8 w-8 text-blue-600" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-700 mb-1">
+                              Haz clic para seleccionar una imagen
+                            </p>
+                            <p className="text-xs text-gray-500">PNG, JPG, JPEG hasta 5MB</p>
+                          </div>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                          />
+                        </div>
+                      ) : (
+                        <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-gray-50 to-white shadow-[8px_8px_24px_rgba(0,0,0,0.08),-8px_-8px_24px_rgba(255,255,255,1)] p-4">
+                          <div className="relative aspect-square max-w-xs mx-auto rounded-xl overflow-hidden shadow-lg ring-2 ring-gray-200">
+                            <img
+                              src={previewUrl}
+                              alt="Preview"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleRemoveImage}
+                            className="absolute top-6 right-6 rounded-full h-8 w-8 p-0 shadow-lg"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <div className="mt-4 text-center">
+                            <p className="text-sm font-medium text-gray-700 truncate px-4">
+                              {selectedFile?.name}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {selectedFile && `${(selectedFile.size / 1024).toFixed(2)} KB`}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -351,15 +481,15 @@ export const CreateAgenteModal = ({ open, onClose }: CreateAgenteModalProps) => 
               type="button"
               variant="outline"
               onClick={onClose}
-              disabled={isPending}
+              disabled={isPending || isUploadingImage}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? (
+            <Button type="submit" disabled={isPending || isUploadingImage}>
+              {isPending || isUploadingImage ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creando...
+                  {isUploadingImage ? 'Subiendo imagen...' : 'Creando...'}
                 </>
               ) : (
                 'Crear Agente'

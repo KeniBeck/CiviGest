@@ -7,7 +7,8 @@ export type ImageType =
   | 'permisos'         // Imágenes de permisos ciudadanos
   | 'usuarios'         // Fotos de perfil de usuarios
   | 'comprobantes'     // Comprobantes de pago
-  | 'documentos';      // Documentos adjuntos generales
+  | 'documentos'      // Documentos adjuntos generales
+  | 'agentes';         // Fotos de agentes
 
 export interface ImageUploadResult {
   filename: string;

@@ -64,7 +64,7 @@ export interface UpdateAgente {
     numPlantilla?: string;
     numEmpleadoBiometrico?: string;
     foto?: string;
-    whatsapp?: number;
+    whatsapp?: string;
     correo?: string;
     contrasena?: string;
     departamentoId?: number;

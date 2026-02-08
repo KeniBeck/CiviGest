@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { useUserLevel } from '@/hooks/useUserLevel';
 import {
   useConfiguracionBySubsede,
   useCreateConfiguracion,
@@ -25,6 +26,10 @@ export const ConfiguracionPage = () => {
   const subsedeId = user?.subsedeId || 0;
   const sedeId = user?.sedeId || 0;
   const { setTheme, updateConfiguracion: updateConfiguracionStore } = useThemeStore();
+  const { userLevel } = useUserLevel();
+
+  // ✅ Solo SUPER_ADMIN puede editar campos que no sean Valores Económicos
+  const canEditGeneralFields = userLevel === 'SUPER_ADMIN';
 
   // ✅ Obtener configuración existente
   const { data: configuracion, isLoading, error } = useConfiguracionBySubsede(subsedeId);
@@ -325,6 +330,7 @@ export const ConfiguracionPage = () => {
                 onChange={(e) => handleChange('nombreCliente', e.target.value)}
                 required
                 placeholder="Ej: Municipio de Guadalajara"
+                disabled={!canEditGeneralFields}
               />
             </div>
 
@@ -336,6 +342,7 @@ export const ConfiguracionPage = () => {
                 onChange={(e) => handleChange('titular', e.target.value)}
                 required
                 placeholder="Ej: Presidente Municipal"
+                disabled={!canEditGeneralFields}
               />
             </div>
 
@@ -347,6 +354,7 @@ export const ConfiguracionPage = () => {
                 onChange={(e) => handleChange('pais', e.target.value)}
                 required
                 placeholder="Ej: México"
+                disabled={!canEditGeneralFields}
               />
             </div>
 
@@ -358,6 +366,7 @@ export const ConfiguracionPage = () => {
                 onChange={(e) => handleChange('ciudad', e.target.value)}
                 required
                 placeholder="Ej: Guadalajara"
+                disabled={!canEditGeneralFields}
               />
             </div>
 
@@ -368,6 +377,7 @@ export const ConfiguracionPage = () => {
                 value={formData.slogan}
                 onChange={(e) => handleChange('slogan', e.target.value)}
                 placeholder="Ej: Comprometidos con el progreso"
+                disabled={!canEditGeneralFields}
               />
             </div>
           </div>
@@ -386,7 +396,7 @@ export const ConfiguracionPage = () => {
               onDelete={handleLogoDelete}
               hasConfiguration={hasConfiguration}
               size="xl"
-              disabled={isPending}
+              disabled={isPending || !canEditGeneralFields}
             />
             <p className="text-sm text-gray-500 mt-4 text-center max-w-md">
               Puedes subir una imagen desde tu dispositivo o usar una URL externa.
@@ -518,6 +528,7 @@ export const ConfiguracionPage = () => {
                 onChange={(e) => handleChange('correoContacto', e.target.value)}
                 required
                 placeholder="contacto@municipio.gob.mx"
+                disabled={!canEditGeneralFields}
               />
             </div>
 
@@ -529,6 +540,7 @@ export const ConfiguracionPage = () => {
                 onChange={(e) => handleChange('whatsappContacto', e.target.value)}
                 required
                 placeholder="3121234567"
+                disabled={!canEditGeneralFields}
               />
             </div>
 
@@ -540,6 +552,7 @@ export const ConfiguracionPage = () => {
                 onChange={(e) => handleChange('telContacto', e.target.value)}
                 required
                 placeholder="33 1234 5678"
+                disabled={!canEditGeneralFields}
               />
             </div>
           </div>
@@ -558,6 +571,7 @@ export const ConfiguracionPage = () => {
                 onChange={(e) => handleChange('correoAtencion', e.target.value)}
                 required
                 placeholder="atencion@municipio.gob.mx"
+                disabled={!canEditGeneralFields}
               />
             </div>
 
@@ -569,6 +583,7 @@ export const ConfiguracionPage = () => {
                 onChange={(e) => handleChange('whatsappAtencion', e.target.value)}
                 required
                 placeholder="3129876543"
+                disabled={!canEditGeneralFields}
               />
             </div>
 
@@ -580,6 +595,7 @@ export const ConfiguracionPage = () => {
                 onChange={(e) => handleChange('telAtencion', e.target.value)}
                 required
                 placeholder="33 9876 5432"
+                disabled={!canEditGeneralFields}
               />
             </div>
           </div>
