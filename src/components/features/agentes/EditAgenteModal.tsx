@@ -44,7 +44,7 @@ export const EditAgenteModal = ({ open, onClose, agenteId }: EditAgenteModalProp
     apellidoMaterno: '',
     tipoId: 0,
     cargo: '',
-    numPlantilla: '',
+    numPlaca: '',
     numEmpleadoBiometrico: '',
     foto: '',
     whatsapp: '',
@@ -63,7 +63,7 @@ export const EditAgenteModal = ({ open, onClose, agenteId }: EditAgenteModalProp
         apellidoMaterno: agente.apellidoMaterno,
         tipoId: agente.tipoId,
         cargo: agente.cargo,
-        numPlantilla: agente.numPlantilla,
+        numPlaca: agente.numPlaca,
         numEmpleadoBiometrico: agente.numEmpleadoBiometrico,
         foto: agente.foto,
         whatsapp: agente.whatsapp,
@@ -271,11 +271,11 @@ export const EditAgenteModal = ({ open, onClose, agenteId }: EditAgenteModalProp
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="numPlantilla">Número de Plantilla *</Label>
+                      <Label htmlFor="numPlaca">Número de Placa *</Label>
                       <Input
-                        id="numPlantilla"
-                        value={formData.numPlantilla}
-                        onChange={(e) => handleChange('numPlantilla', e.target.value)}
+                        id="numPlaca"
+                        value={formData.numPlaca}
+                        onChange={(e) => handleChange('numPlaca', e.target.value)}
                         required
                         placeholder="Ej: 12345"
                       />

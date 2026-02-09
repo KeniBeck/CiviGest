@@ -5,11 +5,15 @@ import type { User } from '@/types/auth.types';
 interface AuthState {
   user: User | null;
   token: string | null;
+  tokenType: string;
+  expiresAt: number | null;
+  isAgente: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
-  setAuth: (user: User, token: string) => void;
+  setAuth: (user: User, token: string, tokenType?: string, expiresIn?: number) => void;
   clearAuth: () => void;
   setLoading: (loading: boolean) => void;
+  updateUser: (user: User) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -17,13 +21,20 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       token: null,
+      tokenType: 'Bearer',
+      expiresAt: null,
+      isAgente: false,
       isAuthenticated: false,
       isLoading: false,
 
-      setAuth: (user: User, token: string) => {
+      setAuth: (user: User, token: string, tokenType = 'Bearer', expiresIn = 28800) => {
+        const expiresAt = Date.now() + expiresIn * 1000;
         set({
           user,
           token,
+          tokenType,
+          expiresAt,
+          isAgente: user.isAgente === true,
           isAuthenticated: true,
           isLoading: false,
         });
@@ -33,6 +44,9 @@ export const useAuthStore = create<AuthState>()(
         set({
           user: null,
           token: null,
+          tokenType: 'Bearer',
+          expiresAt: null,
+          isAgente: false,
           isAuthenticated: false,
           isLoading: false,
         });
@@ -40,6 +54,13 @@ export const useAuthStore = create<AuthState>()(
 
       setLoading: (loading: boolean) => {
         set({ isLoading: loading });
+      },
+
+      updateUser: (user: User) => {
+        set({ 
+          user,
+          isAgente: user.isAgente === true 
+        });
       },
     }),
     {

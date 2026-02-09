@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userService } from '@/services/user.service';
+import { authService } from '@/services/auth.service';
+import { useAuthStore } from '@/stores/authStore';
 import type {
   GetUsersParams,
   CreateUserDto,
@@ -29,14 +31,14 @@ export const useUsers = (params: GetUsersParams) => {
 };
 
 // Obtener un usuario por ID
-export const useUser = (id: number) => {
+export const useUser = (id: number, enabled: boolean = true) => {
   return useQuery({
     queryKey: userKeys.detail(id),
     queryFn: async () => {
       const response = await userService.getById(id);
       return response.data;
     },
-    enabled: !!id,
+    enabled: !!id && enabled,
   });
 };
 
@@ -104,10 +106,21 @@ export const useToggleUserActive = () => {
 
 // Cambiar propia contraseña
 export const useChangeOwnPassword = () => {
+  const { isAgente } = useAuthStore();
+  
   return useMutation({
     mutationFn: async (data: ChangeOwnPasswordDto) => {
-      const response = await userService.changeOwnPassword(data);
-      return response.data;
+      const payload = {
+        currentPassword: data.oldPassword,
+        newPassword: data.newPassword,
+      };
+      
+      if (isAgente) {
+        await authService.changeAgentePassword(payload);
+      } else {
+        const response = await userService.changeOwnPassword(data);
+        return response.data;
+      }
     },
   });
 };

@@ -7,7 +7,7 @@ export interface Agente {
     apellidoMaterno: string;
     tipoId: number;
     cargo: string;
-    numPlantilla: string;
+    numPlaca: string;
     numEmpleadoBiometrico: string;
     foto: string;
     whatsapp: string;
@@ -45,7 +45,7 @@ export interface CreateAgente {
     apellidoMaterno: string;
     tipoId: number;
     cargo: string;
-    numPlantilla: string;
+    numPlaca: string;
     numEmpleadoBiometrico: string;
     foto: string;
     whatsapp: string;
@@ -61,7 +61,7 @@ export interface UpdateAgente {
     apellidoMaterno?: string;
     tipoId?: number;
     cargo?: string;
-    numPlantilla?: string;
+    numPlaca?: string;
     numEmpleadoBiometrico?: string;
     foto?: string;
     whatsapp?: string;

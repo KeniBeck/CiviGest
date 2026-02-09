@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { 
-  User, 
+  User as UserIcon, 
   Mail, 
   Phone, 
   MapPin, 
@@ -8,17 +8,39 @@ import {
   Calendar,
   IdCard,
   Building2,
-  KeyRound
+  KeyRound,
+  Car,
+  UserCheck
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useUser } from '@/hooks/queries/useUsers';
+import { useProfile } from '@/hooks/queries/useAuth';
+import { useImageUrl } from '@/hooks/queries/useImagenes';
+import type { User as AuthUser } from '@/types/auth.types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChangeOwnPasswordModal } from '@/components/features/users/ChangeOwnPasswordModal';
 
 const ProfilePage = () => {
-  const { user: authUser } = useAuthStore();
-  const { data: userData, isLoading } = useUser(authUser?.id || 0);
+  const { user: authUser, isAgente } = useAuthStore();
+  
+  // Para agentes usamos el endpoint de perfil, para usuarios usamos el servicio de usuarios
+  const { data: profileData, isLoading: isLoadingProfile } = useProfile();
+  const { data: userData, isLoading: isLoadingUser } = useUser(
+    authUser?.id || 0,
+    !isAgente // Solo habilitamos la query si NO es agente
+  );
+  
+  const isLoading = isAgente ? isLoadingProfile : isLoadingUser;
+  const user: AuthUser | any = isAgente ? profileData : userData;
+
+  // URL de la foto del agente
+  const agentePhotoUrl = useImageUrl({ 
+    type: 'agentes', 
+    filename: isAgente && user?.foto ? user.foto : '' 
+  });
+  
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   if (isLoading) {
@@ -32,7 +54,7 @@ const ProfilePage = () => {
     );
   }
 
-  if (!userData) {
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-gray-500">No se pudo cargar la información del perfil</p>
@@ -40,7 +62,7 @@ const ProfilePage = () => {
     );
   }
 
-  const initials = `${userData.firstName[0]}${userData.lastName[0]}`.toUpperCase();
+  const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
 
   // Helper para colores de roles
   const getRoleVariant = (level: string) => {
@@ -58,6 +80,40 @@ const ProfilePage = () => {
     }
   };
 
+  const renderRoles = () => {
+    if (isAgente) {
+      return (
+        <>
+          {(user.roles as string[])?.map((role, idx) => (
+            <Badge key={idx} variant="default" className="text-xs px-3 py-1">
+              {role}
+            </Badge>
+          ))}
+          <Badge variant="outline" className="text-xs px-3 py-1 border-blue-300 text-blue-700 bg-blue-50">
+            <Shield className="h-3 w-3 mr-1" />
+            Agente
+          </Badge>
+        </>
+      );
+    }
+    
+    return (
+      <>
+        {(user as any).roles?.map((r: any, idx: number) => (
+          <Badge key={idx} variant={getRoleVariant(r.role.level)} className="text-xs px-3 py-1">
+            {r.role.name}
+          </Badge>
+        ))}
+        <Badge 
+          variant="outline" 
+          className="text-xs px-3 py-1 border-green-300 text-green-700 bg-green-50"
+        >
+          {(user as any).isActive ? 'Activo' : 'Inactivo'}
+        </Badge>
+      </>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -66,9 +122,20 @@ const ProfilePage = () => {
           <div className="flex flex-col sm:flex-row items-center gap-6">
             {/* Avatar */}
             <div className="relative">
-              <div className="h-28 w-28 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-3xl font-bold shadow-[8px_8px_16px_rgba(0,0,0,0.1),-4px_-4px_12px_rgba(255,255,255,0.8)] ring-4 ring-white">
-                {initials}
-              </div>
+              <Avatar className="h-28 w-28 shadow-[8px_8px_16px_rgba(0,0,0,0.1),-4px_-4px_12px_rgba(255,255,255,0.8)] ring-4 ring-white">
+                {isAgente && agentePhotoUrl ? (
+                  <AvatarImage src={agentePhotoUrl} alt={`${user.firstName} ${user.lastName}`} />
+                ) : null}
+                <AvatarFallback
+                  className="text-3xl font-bold"
+                  style={{
+                    background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+                    color: 'white',
+                  }}
+                >
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
               <div className="absolute -bottom-2 -right-2 bg-green-500 rounded-full p-2 shadow-lg ring-4 ring-white">
                 <div className="w-3 h-3 bg-white rounded-full"></div>
               </div>
@@ -77,21 +144,13 @@ const ProfilePage = () => {
             {/* Info */}
             <div className="flex-1 text-center sm:text-left">
               <h1 className="text-3xl font-bold text-gray-900 mb-1">
-                {userData.firstName} {userData.lastName}
+                {user.firstName} {user.lastName}
               </h1>
-              <p className="text-gray-500 font-medium mb-3">@{userData.username}</p>
+              <p className="text-gray-500 font-medium mb-3">
+                {isAgente ? `@${user.numPlaca || user.username}` : `@${user.username}`}
+              </p>
               <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-                {userData.roles.map((r, idx) => (
-                  <Badge key={idx} variant={getRoleVariant(r.role.level)} className="text-xs px-3 py-1">
-                    {r.role.name}
-                  </Badge>
-                ))}
-                <Badge 
-                  variant="outline" 
-                  className="text-xs px-3 py-1 border-green-300 text-green-700 bg-green-50"
-                >
-                  {userData.isActive ? 'Activo' : 'Inactivo'}
-                </Badge>
+                {renderRoles()}
               </div>
             </div>
 
@@ -116,50 +175,113 @@ const ProfilePage = () => {
           <div className="bg-white rounded-3xl shadow-[8px_8px_24px_rgba(0,0,0,0.08),-8px_-8px_24px_rgba(255,255,255,1)] p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-3 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl shadow-inner">
-                <User className="h-6 w-6 text-blue-600" />
+                <UserIcon className="h-6 w-6 text-blue-600" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">Información Personal</h2>
             </div>
 
             <div className="space-y-4">
+              {/* Campos específicos de agente */}
+              {isAgente && (
+                <>
+                  {/* Número de Placa */}
+                  {user.numPlaca && (
+                    <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
+                      <Shield className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-gray-500 font-medium mb-1">Número de Placa</p>
+                        <p className="text-sm text-gray-900 font-medium">{user.numPlaca}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tipo de Agente */}
+                  {user.tipo && (
+                    <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
+                      <UserCheck className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-gray-500 font-medium mb-1">Tipo de Agente</p>
+                        <p className="text-sm text-gray-900 font-medium">{user.tipo}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cargo */}
+                  {user.cargo && (
+                    <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
+                      <IdCard className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-gray-500 font-medium mb-1">Cargo</p>
+                        <p className="text-sm text-gray-900 font-medium">{user.cargo}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Patrulla */}
+                  {user.patrulla && (
+                    <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
+                      <Car className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-gray-500 font-medium mb-1">Patrulla Asignada</p>
+                        <p className="text-sm text-gray-900 font-medium">
+                          {user.patrulla.numPatrulla} - {user.patrulla.placa}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
               {/* Email */}
               <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
                 <Mail className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-gray-500 font-medium mb-1">Email</p>
-                  <p className="text-sm text-gray-900 font-medium truncate">{userData.email}</p>
+                  <p className="text-sm text-gray-900 font-medium truncate">{user.email}</p>
                 </div>
               </div>
 
-              {/* Teléfono */}
-              <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
-                <Phone className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 font-medium mb-1">Teléfono</p>
-                  <p className="text-sm text-gray-900 font-medium">
-                    {userData.phoneCountryCode} {userData.phoneNumber}
-                  </p>
+              {/* WhatsApp o Teléfono */}
+              {isAgente && user.whatsapp ? (
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
+                  <Phone className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-500 font-medium mb-1">WhatsApp</p>
+                    <p className="text-sm text-gray-900 font-medium">{user.whatsapp}</p>
+                  </div>
                 </div>
-              </div>
-
-              {/* Documento */}
-              <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
-                <IdCard className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 font-medium mb-1">Documento</p>
-                  <p className="text-sm text-gray-900 font-medium">
-                    {userData.documentType}: {userData.documentNumber}
-                  </p>
+              ) : !isAgente && (user as any).phoneNumber && (
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
+                  <Phone className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-500 font-medium mb-1">Teléfono</p>
+                    <p className="text-sm text-gray-900 font-medium">
+                      {(user as any).phoneCountryCode} {(user as any).phoneNumber}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Dirección */}
-              {userData.address && (
+              {/* Documento (solo usuarios) */}
+              {!isAgente && (user as any).documentNumber && (
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
+                  <IdCard className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-500 font-medium mb-1">Documento</p>
+                    <p className="text-sm text-gray-900 font-medium">
+                      {(user as any).documentType}: {(user as any).documentNumber}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Dirección (solo usuarios) */}
+              {!isAgente && (user as any).address && (
                 <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
                   <MapPin className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-gray-500 font-medium mb-1">Dirección</p>
-                    <p className="text-sm text-gray-900 font-medium">{userData.address}</p>
+                    <p className="text-sm text-gray-900 font-medium">{(user as any).address}</p>
                   </div>
                 </div>
               )}
@@ -182,54 +304,80 @@ const ProfilePage = () => {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-gray-500 font-medium mb-1">Nivel de Acceso</p>
                   <p className="text-sm text-gray-900 font-medium">
-                    {userData.accessLevel === 'SEDE' ? 'Estatal (Sede)' : 'Municipal (Subsede)'}
+                    {user.accessLevel === 'SEDE' ? 'Estatal (Sede)' : user.accessLevel === 'SUBSEDE' ? 'Municipal (Subsede)' : user.accessLevel}
                   </p>
                 </div>
               </div>
 
-              {/* Estado */}
-              <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
-                <Building2 className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 font-medium mb-1">Estado</p>
-                  <p className="text-sm text-gray-900 font-medium">{userData.sede?.name || 'N/A'}</p>
-                </div>
-              </div>
-
-              {/* Municipio */}
-              {userData.subsede && (
+              {/* Estado - Solo para usuarios no agentes */}
+              {!isAgente && (user as any).sede && (
                 <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
-                  <MapPin className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
+                  <Building2 className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-500 font-medium mb-1">Municipio</p>
-                    <p className="text-sm text-gray-900 font-medium">{userData.subsede.name}</p>
+                    <p className="text-xs text-gray-500 font-medium mb-1">Estado</p>
+                    <p className="text-sm text-gray-900 font-medium">{(user as any).sede?.name || 'N/A'}</p>
                   </div>
                 </div>
               )}
 
-              {/* Fecha de Creación */}
-              <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
-                <Calendar className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 font-medium mb-1">Miembro desde</p>
-                  <p className="text-sm text-gray-900 font-medium">
-                    {new Date(userData.createdAt).toLocaleDateString('es-MX', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </p>
+              {/* Municipio */}
+              {!isAgente && (user as any).subsede && (
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
+                  <MapPin className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-500 font-medium mb-1">Municipio</p>
+                    <p className="text-sm text-gray-900 font-medium">{(user as any).subsede.name}</p>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Último inicio de sesión */}
-              {userData.lastLoginAt && (
+              {/* Permisos de agente */}
+              {isAgente && user.permissions && user.permissions.length > 0 && (
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
+                  <Shield className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-500 font-medium mb-2">Permisos</p>
+                    <div className="flex flex-wrap gap-1">
+                      {user.permissions?.slice(0, 5).map((permiso: string, idx: number) => (
+                        <Badge key={idx} variant="secondary" className="text-xs px-2 py-0.5">
+                          {permiso}
+                        </Badge>
+                      ))}
+                      {user.permissions && user.permissions.length > 5 && (
+                        <Badge variant="outline" className="text-xs px-2 py-0.5">
+                          +{user.permissions.length - 5} más
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Fecha de Creación - Solo para usuarios */}
+              {!isAgente && (user as any).createdAt && (
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
+                  <Calendar className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-500 font-medium mb-1">Miembro desde</p>
+                    <p className="text-sm text-gray-900 font-medium">
+                      {new Date((user as any).createdAt).toLocaleDateString('es-MX', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Último inicio de sesión - Solo para usuarios */}
+              {!isAgente && (user as any).lastLoginAt && (
                 <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]">
                   <Calendar className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-gray-500 font-medium mb-1">Último acceso</p>
                     <p className="text-sm text-gray-900 font-medium">
-                      {new Date(userData.lastLoginAt).toLocaleDateString('es-MX', {
+                      {new Date((user as any).lastLoginAt).toLocaleDateString('es-MX', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
@@ -244,9 +392,9 @@ const ProfilePage = () => {
           </div>
         </div>
 
-        {/* Accesos (si tiene) */}
-        {((userData.subsedeAccess && userData.subsedeAccess.length > 0) || 
-          (userData.sedeAccess && userData.sedeAccess.length > 0)) && (
+        {/* Accesos (si tiene) - Solo para usuarios no agentes */}
+        {!isAgente && ((user as any).subsedeAccess && (user as any).subsedeAccess.length > 0) || 
+          ((user as any).sedeAccess && (user as any).sedeAccess.length > 0) && (
           <div className="bg-white rounded-3xl shadow-[8px_8px_24px_rgba(0,0,0,0.08),-8px_-8px_24px_rgba(255,255,255,1)] p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-3 bg-gradient-to-br from-green-100 to-green-200 rounded-2xl shadow-inner">
@@ -255,11 +403,11 @@ const ProfilePage = () => {
               <h2 className="text-xl font-bold text-gray-900">Accesos Autorizados</h2>
             </div>
 
-            {userData.subsedeAccess && userData.subsedeAccess.length > 0 && (
+            {(user as any).subsedeAccess && (user as any).subsedeAccess.length > 0 && (
               <div className="mb-4">
                 <p className="text-sm font-semibold text-gray-700 mb-3">Municipios:</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {userData.subsedeAccess.map((access) => (
+                  {(user as any).subsedeAccess.map((access: any) => (
                     <div
                       key={access.id}
                       className="px-4 py-3 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.05),inset_-2px_-2px_4px_rgba(255,255,255,0.8)] text-sm text-gray-900 font-medium text-center"

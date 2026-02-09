@@ -7,19 +7,24 @@ interface AuthLayoutProps {
 export function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <div
-      className="flex min-h-screen flex-col items-center justify-center px-4 py-8"
-      style={{ backgroundColor: 'var(--color-background)' }}
+      className="flex min-h-svh flex-col items-center justify-center px-4 py-6 sm:py-10 overflow-y-auto"
+      style={{ backgroundColor: 'var(--color-background, #e8ecf1)' }}
     >
+      {/* Spacer para empujar al centro cuando hay espacio */}
+      <div className="flex-1" />
+
       {/* Contenido principal (LoginForm con logo incluido) */}
       {children}
 
-      {/* Footer */}
-      <footer
-        className="mt-8 text-center text-sm"
-        style={{ color: 'var(--color-text-secondary)' }}
-      >
-        © {new Date().getFullYear()} Tu Ciudad Digital. Todos los derechos reservados.
-      </footer>
+      {/* Spacer + Footer */}
+      <div className="flex-1 flex flex-col justify-end">
+        <footer
+          className="mt-6 sm:mt-8 pb-2 text-center text-xs sm:text-sm font-medium tracking-wide"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          © {new Date().getFullYear()} Tu Ciudad Digital
+        </footer>
+      </div>
     </div>
   );
 }

@@ -1,8 +1,10 @@
-import { LogOut, Settings, User } from 'lucide-react';
+import { LogOut, Settings, User, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useLogout } from '@/hooks/queries/useAuth';
+import { useImageUrl } from '@/hooks/queries/useImagenes';
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,13 +13,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export const UserMenu = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, isAgente } = useAuthStore();
   const { configuracion } = useThemeStore();
   const { mutate: logout, isPending: isLoading } = useLogout();
+
+  // Obtener URL de la foto del agente si existe
+  const agentePhotoUrl = useImageUrl({ 
+    type: 'agentes', 
+    filename: isAgente && user?.foto ? user.foto : '' 
+  });
 
   if (!user) return null;
 
@@ -29,6 +37,9 @@ export const UserMenu = () => {
       <DropdownMenuTrigger className="focus:outline-none">
         <div className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-gradient-to-br from-white to-gray-50 shadow-[4px_4px_12px_rgba(0,0,0,0.08),-4px_-4px_12px_rgba(255,255,255,1)] hover:shadow-[2px_2px_8px_rgba(0,0,0,0.12),-2px_-2px_8px_rgba(255,255,255,1)] active:shadow-[inset_2px_2px_4px_rgba(0,0,0,0.1),inset_-2px_-2px_4px_rgba(255,255,255,0.9)] transition-all duration-200">
           <Avatar className="h-10 w-10 shrink-0 shadow-md ring-2 ring-white">
+            {isAgente && agentePhotoUrl ? (
+              <AvatarImage src={agentePhotoUrl} alt={`${user.firstName} ${user.lastName}`} />
+            ) : null}
             <AvatarFallback
               className="font-semibold text-base"
               style={{
@@ -40,10 +51,19 @@ export const UserMenu = () => {
             </AvatarFallback>
           </Avatar>
           <div className="hidden md:block text-left min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">
-              {user.firstName} {user.lastName}
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-gray-900 truncate">
+                {user.firstName} {user.lastName}
+              </p>
+              {isAgente && (
+                <Badge variant="outline" className="text-xs px-1.5 py-0 border-blue-300 text-blue-700 bg-blue-50">
+                  <Shield className="h-3 w-3" />
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 font-medium truncate">
+              {isAgente && user.numPlaca ? user.numPlaca : user.roles[0]}
             </p>
-            <p className="text-xs text-gray-500 font-medium truncate">{user.roles[0]}</p>
           </div>
         </div>
       </DropdownMenuTrigger>
@@ -55,6 +75,9 @@ export const UserMenu = () => {
         <DropdownMenuLabel className="p-3">
           <div className="flex items-center gap-3">
             <Avatar className="h-12 w-12 shrink-0 shadow-lg ring-2 ring-gray-100">
+              {isAgente && agentePhotoUrl ? (
+                <AvatarImage src={agentePhotoUrl} alt={`${user.firstName} ${user.lastName}`} />
+              ) : null}
               <AvatarFallback
                 className="font-bold text-lg"
                 style={{
@@ -66,9 +89,17 @@ export const UserMenu = () => {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-base text-gray-900 truncate">
-                {user.firstName} {user.lastName}
-              </p>
+              <div className="flex items-center gap-2 mb-1">
+                <p className="font-semibold text-base text-gray-900 truncate">
+                  {user.firstName} {user.lastName}
+                </p>
+                {isAgente && (
+                  <Badge variant="outline" className="text-xs px-2 py-0.5 border-blue-300 text-blue-700 bg-blue-50">
+                    <Shield className="h-3 w-3 mr-1" />
+                    Agente
+                  </Badge>
+                )}
+              </div>
               <p className="text-xs text-gray-500 truncate">{user.email}</p>
               {configuracion && (
                 <p className="text-xs text-gray-400 mt-0.5 truncate">
@@ -89,13 +120,15 @@ export const UserMenu = () => {
           <span className="font-medium text-gray-700">Mi Perfil</span>
         </DropdownMenuItem>
 
-        <DropdownMenuItem 
-          onClick={() => navigate('/configuracion')}
-          className="rounded-xl px-3 py-2.5 cursor-pointer hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100/50 transition-all duration-200"
-        >
-          <Settings className="mr-3 h-4 w-4 text-purple-600" />
-          <span className="font-medium text-gray-700">Configuración</span>
-        </DropdownMenuItem>
+        {!isAgente && (
+          <DropdownMenuItem 
+            onClick={() => navigate('/configuracion')}
+            className="rounded-xl px-3 py-2.5 cursor-pointer hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100/50 transition-all duration-200"
+          >
+            <Settings className="mr-3 h-4 w-4 text-purple-600" />
+            <span className="font-medium text-gray-700">Configuración</span>
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuSeparator className="my-2" />
 

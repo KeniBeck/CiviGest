@@ -76,10 +76,10 @@ export const useLogin = () => {
         credentials.password
       );
 
-      const { user, accessToken } = loginResponse;
+      const { user, accessToken, tokenType, expiresIn } = loginResponse;
 
       // 2. GUARDAR TOKEN PRIMERO (para que esté disponible en el interceptor)
-      setAuth(user, accessToken);
+      setAuth(user, accessToken, tokenType, expiresIn);
       console.log('✅ Token guardado antes de llamar configuración');
 
       // 3. Cargar configuración del municipio (incluye tema)
@@ -119,6 +119,63 @@ export const useLogin = () => {
 };
 
 // ============================================
+// LOGIN AGENTE - Con carga automática de configuración
+// ============================================
+export const useLoginAgente = () => {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { setAuth } = useAuthStore();
+  const { setConfiguracion } = useThemeStore();
+
+  return useMutation({
+    mutationFn: async (credentials: { numPlaca: string; contrasena: string }) => {
+      // 1. Login agente
+      const loginResponse = await authService.loginAgente(
+        credentials.numPlaca,
+        credentials.contrasena
+      );
+
+      const { user, accessToken, tokenType, expiresIn } = loginResponse;
+
+      // 2. GUARDAR TOKEN PRIMERO (para que esté disponible en el interceptor)
+      setAuth(user, accessToken, tokenType, expiresIn);
+      console.log('✅ Token de agente guardado');
+
+      // 3. Cargar configuración del municipio (incluye tema)
+      const configResponse = await configuracionService.getBySubsede(
+        user.subsedeId
+      );
+
+      return {
+        user,
+        accessToken,
+        configuracion: configResponse.data,
+      };
+    },
+    onSuccess: ({ configuracion }) => {
+      // ✅ Generar URL completa del logo antes de guardar
+      const configuracionConLogoUrl = {
+        ...configuracion,
+        logo: configuracion.logo && !configuracion.logo.startsWith('http')
+          ? imagenesService.getImageUrl({ type: 'configuraciones', filename: configuracion.logo })
+          : configuracion.logo,
+      };
+      
+      // Guardar configuración y tema en Zustand
+      setConfiguracion(configuracionConLogoUrl);
+
+      console.log('✅ Configuración cargada para agente');
+
+      // Invalidar queries
+      queryClient.invalidateQueries({ queryKey: authKeys.validate });
+
+      // Redirigir a dashboard
+      navigate(ROUTES.DASHBOARD);
+    },
+  });
+};
+
+// ============================================
 // LOGOUT
 // ============================================
 export const useLogout = () => {
@@ -137,5 +194,24 @@ export const useLogout = () => {
       queryClient.clear(); // Limpiar todo el caché
       navigate(ROUTES.LOGIN);
     },
+  });
+};
+
+// ============================================
+// GET PROFILE - Usa el endpoint correcto según isAgente
+// ============================================
+export const useProfile = () => {
+  const { isAgente, token } = useAuthStore();
+
+  return useQuery({
+    queryKey: ['profile', isAgente],
+    queryFn: async () => {
+      if (isAgente) {
+        return await authService.getAgenteProfile();
+      }
+      return await authService.getProfile();
+    },
+    enabled: !!token,
+    staleTime: 1000 * 60 * 5, // 5 minutos
   });
 };
