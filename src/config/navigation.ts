@@ -147,6 +147,7 @@ export const navigationMenu: MenuItem[] = [
         label: 'Usuarios',
         icon: Users,
         path: '/users',
+        roles: ['SUPER_ADMIN', 'MUNICIPAL', 'ESTATAL'],
         permissions: ['users:read'],
       },
       {
