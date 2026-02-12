@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useNotification } from '@/hooks/useNotification';
 import { ticketService } from '@/services/ticket.service';
+import { sunmiPrinterService } from '@/services/sunmiPrinter.service';
 import { configuracionService } from '@/services/configuracion.service';
 import { permisoService } from '@/services/permiso.service';
 import { whatsappService } from '@/services/whatsapp.service';
@@ -77,16 +78,33 @@ export const ComprobanteModal = ({ open, onOpenChange, pago }: ComprobanteModalP
         }
       }
 
-      const pdfBlob = await ticketService.generateTicketPermiso({
+      // Detectar si es dispositivo Sunmi
+      const isSunmi = sunmiPrinterService.isSunmiDevice();
+
+      // Los mismos parámetros para ambos métodos (PDF y Sunmi)
+      const ticketParams = {
         pago,
         permiso,
         logoUrl: configuracion?.logo,
         nombreCliente: configuracion?.nombreCliente,
         slogan: configuracion?.slogan,
-      });
+      };
 
-      ticketService.openPDF(pdfBlob);
-      notify.success('Éxito', 'Ticket generado correctamente');
+      if (isSunmi) {
+        // ========================================
+        // IMPRESIÓN EN SUNMI (impresora térmica)
+        // Usa la MISMA estructura que el PDF
+        // ========================================
+        await sunmiPrinterService.printTicket(ticketParams);
+        notify.success('Éxito', 'Ticket enviado a la impresora térmica');
+      } else {
+        // ========================================
+        // IMPRESIÓN ESTÁNDAR (PDF)
+        // ========================================
+        const pdfBlob = await ticketService.generateTicketPermiso(ticketParams);
+        ticketService.openPDF(pdfBlob);
+        notify.success('Éxito', 'Ticket generado correctamente');
+      }
     } catch (error) {
       console.error('Error al generar ticket:', error);
       notify.error('Error', 'Error al generar el ticket');
