@@ -1,0 +1,9 @@
+export { MetricCard } from './MetricCard';
+export { StatsGroupCard } from './StatsGroupCard';
+export { FinanzasHeroCard } from './FinanzasHeroCard';
+export { TrendsChart } from './TrendsChart';
+export { InfraccionesPorTipoChart } from './InfraccionesPorTipoChart';
+export { PagosPorMetodoChart } from './PagosPorMetodoChart';
+export { PermisosPorEstadoChart } from './PermisosPorEstadoChart';
+export { TopMunicipiosTable } from './TopMunicipiosTable';
+export { DashboardFilters } from './DashboardFilters';
