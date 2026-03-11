@@ -1,12 +1,11 @@
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { DetalleModalHeader } from '@/components/common/DetalleModalHeader';
 import { Separator } from '@/components/ui/separator';
 import {
   FileText,
@@ -99,20 +98,19 @@ export const DetallePermisoModal = ({ open, onClose, permiso }: DetallePermisoMo
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2">
+        <DetalleModalHeader
+          title={
+            <>
               <FileText className="h-5 w-5" />
               Detalle del Permiso
-            </DialogTitle>
-            <div className="flex items-center gap-2">
-              <Badge variant={estatusConfig.variant} className="text-sm">
-                <EstatusIcon className="h-3 w-3 mr-1" />
-                {permiso.estatus}
-              </Badge>
-            </div>
-          </div>
-        </DialogHeader>
+            </>
+          }
+          statusBadge={{
+            variant: estatusConfig.variant,
+            label: permiso.estatus,
+            icon: EstatusIcon,
+          }}
+        />
 
         <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar">
           <div className="space-y-6">
