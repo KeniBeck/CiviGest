@@ -15,6 +15,7 @@ import { PermisoPage } from "./pages/permiso/PermisoPage";
 import { TipoAgentePage } from "./pages/tipo-agente/TipoAgentePage";
 import { DepartamentoPage } from "./pages/departamento/DepartamentoPage";
 import { MultasPage } from "./pages/multas/MultasPage";
+import { InfraccionPage } from "./pages/infraccion/InfraccionPage";
 import { ConfiguracionPage } from "./pages/configuracion/ConfiguracionPage";
 import RolePage from "./pages/role/RolePage";
 import PermissionsPage from "./pages/permission/PermissionsPage";
@@ -71,6 +72,10 @@ export const router = createBrowserRouter([
           {
             path: "/multas",
             element: <MultasPage />,
+          },
+          {
+            path: "/infracciones",
+            element: <InfraccionPage />,
           },
           {
             path: "/agentes",
